@@ -4,11 +4,20 @@ import User from "../model/user.model.js";
 
 const secureRoute = async (req, res, next) => {
   try {
-    const token = req.cookies.jwt;
-    if (!token) {
+    const token =
+      req.cookies?.jwt ||
+      (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")
+        ? req.headers.authorization.split(" ")[1]
+        : null);
+
+    if (!token || token === "undefined") {
       return res.status(401).json({ error: "No token, authorization denied" });
     }
-    const decoded = jwt.verify(token, process.env.JWT_TOKEN);
+    const secretKey = process.env.JWT_SECRET;
+    if (!secretKey) {
+      throw new Error("FATAL: JWT_SECRET environment variable is not defined. Cannot verify JWT tokens.");
+    }
+    const decoded = jwt.verify(token, secretKey);
     if (!decoded) {
       return res.status(401).json({ error: "Invalid Token" });
     }

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 280" fill="none" shape-rendering="auto">
+  <defs>
+    <linearGradient id="userBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#334155" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="userShape" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e2e8f0" />
+      <stop offset="100%" stop-color="#94a3b8" />
+    </linearGradient>
+  </defs>
+
+  <rect width="280" height="280" rx="0" fill="url(#userBg)" />
+
+  <g fill="url(#userShape)">
+    <!-- Head -->
+    <circle cx="140" cy="100" r="46" />
+    <!-- Shoulders & Torso -->
+    <path d="M50 250 C50 195 90 162 140 162 C190 162 230 195 230 250 C230 262 220 270 208 270 L72 270 C60 270 50 262 50 250 Z" />
+  </g>
+</svg>

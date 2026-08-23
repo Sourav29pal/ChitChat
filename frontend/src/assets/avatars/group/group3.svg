@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <radialGradient id="bgGrad" cx="40%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="55%" stop-color="#5b21b6"/>
+      <stop offset="100%" stop-color="#1e0a3c"/>
+    </radialGradient>
+    <radialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#c4b5fd" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="circleClip">
+      <circle cx="100" cy="100" r="97"/>
+    </clipPath>
+    <filter id="iconGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="100" cy="100" r="100" fill="url(#bgGrad)"/>
+  <ellipse cx="100" cy="105" rx="68" ry="60" fill="url(#glowGrad)" clip-path="url(#circleClip)"/>
+  <circle cx="100" cy="100" r="97" fill="none" stroke="#c4b5fd" stroke-width="1.5" stroke-opacity="0.4"/>
+
+  <g filter="url(#iconGlow)" clip-path="url(#circleClip)">
+    <circle cx="55" cy="77" r="18" fill="white"/>
+    <path d="M 14 162 C 14 140, 27 127, 55 127 C 63 127, 70 129, 76 133 C 70 139, 64 149, 62 162 Z" fill="white"/>
+    <circle cx="145" cy="77" r="18" fill="white"/>
+    <path d="M 186 162 C 186 140, 173 127, 145 127 C 137 127, 130 129, 124 133 C 130 139, 136 149, 138 162 Z" fill="white"/>
+    <circle cx="100" cy="70" r="24" fill="white"/>
+    <path d="M 38 168 L 162 168 C 172 168, 178 162, 178 152 L 178 145 C 178 128, 155 116, 100 116 C 45 116, 22 128, 22 145 L 22 152 C 22 162, 28 168, 38 168 Z" fill="white"/>
+  </g>
+</svg>

@@ -1,38 +1,43 @@
 import express from "express";
 import dotenv from "dotenv";
-import mongoose from "mongoose";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import path from "path";
+import connectDB from "./server.js";
 import userRoute from "./routes/user.routes.js";
 import messageRoute from "./routes/message.route.js";
-import { app, server } from "./SocketIO/server.js";
+import groupRoute from "./routes/group.routes.js";
+import callRoute from "./routes/call.route.js";
+import { app, server } from "./SocketIO/socketServer.js";
 
 dotenv.config();
 
-// middleware
-app.use(express.json());
+// Fail fast if critical environment variables are missing
+if (!process.env.JWT_SECRET) {
+  console.error("FATAL ERROR: JWT_SECRET environment variable is not defined.");
+  process.exit(1);
+}
+
+// Middleware (increased limit for base64 image uploads)
+app.use(express.json({ limit: "15mb" }));
+app.use(express.urlencoded({ limit: "15mb", extended: true }));
 app.use(cookieParser());
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:3001",
+    credentials: true,
+  })
+);
 
 const PORT = process.env.PORT || 4001;
-const URI = process.env.MONGODB_URI;
 
-mongoose
-  .connect(URI)
-  .then(() => {
-    console.log("Connected to MongoDB");
-  })
-  .catch((error) => {
-    console.error("MongoDB connection error:", error);
-    process.exit(1);
-  });
-
-// routes
+// Routes
 app.use("/api/user", userRoute);
 app.use("/api/message", messageRoute);
+app.use("/api/group", groupRoute);
+app.use("/api/call", callRoute);
 
-// -------------------- code for deployment ------------------------
+// -------------------- Code for deployment ------------------------
 if (process.env.NODE_ENV === "production") {
   const __dirname = path.resolve();
 
@@ -43,7 +48,9 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-// Server
-server.listen(PORT, () => {
-  console.log(`Server is Running on port ${PORT}`);
+// Connect to MongoDB first, then start Server
+connectDB().then(() => {
+  server.listen(PORT, () => {
+    console.log(`Server is Running on port ${PORT}`);
+  });
 });
