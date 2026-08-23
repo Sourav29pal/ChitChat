@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "../../context/AuthProvider";
-import axios from "axios";
+import api from "../../api";
 import {
   FiUser,
   FiCopy,
@@ -142,7 +142,7 @@ function UserProfile() {
       const formData = new FormData();
       formData.append("avatar", croppedBlob, "avatar.jpg");
 
-      const res = await axios.put("/api/user/profile", formData, {
+      const res = await api.put("/api/user/profile", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -168,7 +168,7 @@ function UserProfile() {
   const handleSelectSystemAvatar = async (systemAvatarUrl) => {
     const toastId = toast.loading("Updating avatar...");
     try {
-      const res = await axios.put("/api/user/profile", {
+      const res = await api.put("/api/user/profile", {
         avatar: systemAvatarUrl,
       });
       const updatedUser = { ...authUser, user: res.data.user };
@@ -190,7 +190,7 @@ function UserProfile() {
   const handleResetToDefaultAvatar = async () => {
     const toastId = toast.loading("Resetting to default avatar...");
     try {
-      const res = await axios.put("/api/user/profile", {
+      const res = await api.put("/api/user/profile", {
         avatar: DEFAULT_USER_AVATAR_URL,
       });
       const updatedUser = { ...authUser, user: res.data.user };
@@ -252,7 +252,7 @@ function UserProfile() {
         formData.append("avatar", avatarPreview);
       }
 
-      const res = await axios.put("/api/user/profile", formData, {
+      const res = await api.put("/api/user/profile", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -280,7 +280,7 @@ function UserProfile() {
 
   const handleLogout = async () => {
     try {
-      await axios.post("/api/user/logout");
+      await api.post("/api/user/logout");
       localStorage.removeItem("ChatApp");
       setAuthUser(null);
       toast.success("Logged out successfully");

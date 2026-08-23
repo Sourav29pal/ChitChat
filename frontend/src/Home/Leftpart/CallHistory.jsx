@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import axios from "axios";
+import api from "../../api";
 import { useAuth } from "../../context/AuthProvider.jsx";
 import useConversation from "../../zustand/useConversation.js";
 import { useSocketContext } from "../../context/SocketContext.jsx";
@@ -108,7 +108,7 @@ function CallHistory() {
   const fetchCallHistory = async () => {
     try {
       setLoading(true);
-      const res = await axios.get("/api/call/history");
+      const res = await api.get("/api/call/history");
       if (res.data && Array.isArray(res.data.calls)) {
         setCalls(res.data.calls);
       }
@@ -288,7 +288,7 @@ function CallHistory() {
     setDeleting(true);
     try {
       const idsToDelete = Array.from(selectedCallIds);
-      await axios.post("/api/call/delete", { callIds: idsToDelete });
+      await api.post("/api/call/delete", { callIds: idsToDelete });
       setCalls((prev) => prev.filter((c) => !selectedCallIds.has(c._id)));
       toast.success(
         idsToDelete.length === 1 ? "Call log deleted" : `${idsToDelete.length} call logs deleted`

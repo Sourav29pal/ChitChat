@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import useGetAllUsers from "../../context/useGetAllUser";
 import useConversation from "../../zustand/useConversation.js";
 import User from "./User";
-import axios from "axios";
+import api from "../../api";
 import { FiMessageSquare, FiX, FiInfo, FiSearch, FiTrash2, FiAlertTriangle } from "react-icons/fi";
 import { BsPinAngleFill } from "react-icons/bs";
 import { ImSpinner8 } from "react-icons/im";
@@ -35,7 +35,7 @@ function Users() {
     const fetchGroups = async () => {
       setFetchingGroups(true);
       try {
-        const res = await axios.get("/api/group/my-groups");
+        const res = await api.get("/api/group/my-groups");
         setMyGroups(res.data);
       } catch (err) {
         console.error("Error fetching groups:", err);
@@ -79,7 +79,7 @@ function Users() {
     setRemoving(true);
     try {
       const partnerId = String(removeModalUser._id);
-      const res = await axios.post("/api/message/remove-conversation", {
+      const res = await api.post("/api/message/remove-conversation", {
         conversationId: partnerId,
         partnerId: partnerId,
       });

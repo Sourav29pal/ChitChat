@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import axios from "axios";
+import api from "../api";
 import { useAuth } from "../context/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -161,7 +161,7 @@ function Onboarding() {
         formData.append("about", about.trim());
         formData.append("avatar", avatarBlob, "avatar.jpg");
 
-        res = await axios.put("/api/user/profile", formData, {
+        res = await api.put("/api/user/profile", formData, {
           headers: {
             "Content-Type": "multipart/form-data",
           },
@@ -174,7 +174,7 @@ function Onboarding() {
           about: about.trim(),
         };
 
-        res = await axios.put("/api/user/profile", payload);
+        res = await api.put("/api/user/profile", payload);
       }
 
       if (res.data && res.data.user) {

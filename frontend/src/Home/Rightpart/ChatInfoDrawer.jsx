@@ -4,7 +4,7 @@ import useConversation from "../../zustand/useConversation";
 import { useSocketContext } from "../../context/SocketContext";
 import { useAuth } from "../../context/AuthProvider";
 import useGetAllUsers from "../../context/useGetAllUser";
-import axios from "axios";
+import api from "../../api";
 import {
   FiX,
   FiMessageSquare,
@@ -108,7 +108,7 @@ function ChatInfoDrawer() {
     const fetchSharedMedia = async () => {
       setLoadingMedia(true);
       try {
-        const res = await axios.get(`/api/message/media/${targetUser._id}`);
+        const res = await api.get(`/api/message/media/${targetUser._id}`);
         if (isMounted) {
           setSharedMedia(Array.isArray(res.data) ? res.data : []);
         }
@@ -251,7 +251,7 @@ function ChatInfoDrawer() {
   const handleConfirmRemoveMember = async (memberId) => {
     setRemoveLoading(true);
     try {
-      const res = await axios.post("/api/group/remove-member", {
+      const res = await api.post("/api/group/remove-member", {
         groupId: targetUser._id,
         memberId,
       });
@@ -270,7 +270,7 @@ function ChatInfoDrawer() {
   const handleSaveAbout = async () => {
     setSavingAbout(true);
     try {
-      const res = await axios.post("/api/group/update-details", {
+      const res = await api.post("/api/group/update-details", {
         groupId: targetUser._id,
         groupDescription: editedAbout.trim(),
       });
@@ -298,7 +298,7 @@ function ChatInfoDrawer() {
     }
     setSavingName(true);
     try {
-      const res = await axios.post("/api/group/update-details", {
+      const res = await api.post("/api/group/update-details", {
         groupId: targetUser._id,
         groupName: trimmed,
       });
@@ -349,7 +349,7 @@ function ChatInfoDrawer() {
       formData.append("groupId", targetUser._id);
       formData.append("groupAvatar", croppedBlob, "groupAvatar.jpg");
 
-      const res = await axios.put("/api/group/update-details", formData, {
+      const res = await api.put("/api/group/update-details", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -372,7 +372,7 @@ function ChatInfoDrawer() {
     setUploadingGroupAvatar(true);
     const toastId = toast.loading("Updating group avatar...");
     try {
-      const res = await axios.put("/api/group/update-details", {
+      const res = await api.put("/api/group/update-details", {
         groupId: targetUser._id,
         groupAvatar: systemAvatarUrl,
       });
@@ -395,7 +395,7 @@ function ChatInfoDrawer() {
     setUploadingGroupAvatar(true);
     const toastId = toast.loading("Resetting group photo...");
     try {
-      const res = await axios.put("/api/group/update-details", {
+      const res = await api.put("/api/group/update-details", {
         groupId: targetUser._id,
         groupAvatar: DEFAULT_GROUP_AVATAR_URL,
       });
@@ -429,7 +429,7 @@ function ChatInfoDrawer() {
     }
     setAddingLoading(true);
     try {
-      const res = await axios.post("/api/group/add-member", {
+      const res = await api.post("/api/group/add-member", {
         groupId: targetUser._id,
         members: selectedToAdd,
       });
@@ -449,7 +449,7 @@ function ChatInfoDrawer() {
   // Handle Promote Member to Admin
   const handlePromoteAdmin = async (memberId) => {
     try {
-      const res = await axios.post("/api/group/promote-admin", {
+      const res = await api.post("/api/group/promote-admin", {
         groupId: targetUser._id,
         memberId,
       });
@@ -464,7 +464,7 @@ function ChatInfoDrawer() {
   // Handle Demote Admin to Member
   const handleDemoteAdmin = async (memberId) => {
     try {
-      const res = await axios.post("/api/group/demote-admin", {
+      const res = await api.post("/api/group/demote-admin", {
         groupId: targetUser._id,
         memberId,
       });

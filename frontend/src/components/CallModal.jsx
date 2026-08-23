@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import axios from "axios";
+import api from "../api";
 import { useSocketContext } from "../context/SocketContext";
 import { useAuth } from "../context/AuthProvider";
 import useConversation from "../zustand/useConversation";
@@ -132,7 +132,7 @@ function CallModal() {
       const answeredAt = callConnectedAtRef.current ? (callAnsweredAtRef.current || new Date(callConnectedAtRef.current).toISOString()) : null;
       const endedAt = new Date().toISOString();
 
-      const res = await axios.post("/api/call/log", {
+      const res = await api.post("/api/call/log", {
         receiverId: otherUserId,
         callType,
         status,

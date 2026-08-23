@@ -1,6 +1,6 @@
 import React from "react";
 import { BiLogOutCircle } from "react-icons/bi";
-import axios from "axios";
+import api from "../../api";
 import Cookies from "js-cookie";
 import toast from "react-hot-toast";
 import { useAuth } from "../../context/AuthProvider";
@@ -10,7 +10,7 @@ function Logout() {
 
   const handleLogout = async () => {
     try {
-      await axios.post("/api/user/logout");
+      await api.post("/api/user/logout");
     } catch (error) {
       console.error("Logout error:", error);
     } finally {

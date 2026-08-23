@@ -8,7 +8,7 @@ import { useAuth } from "../../context/AuthProvider.jsx";
 import { FiLoader, FiUsers, FiTrash2, FiCheckSquare, FiX, FiSmile, FiCopy, FiChevronDown, FiAlertTriangle } from "react-icons/fi";
 import { ImSpinner8 } from "react-icons/im";
 import { HiChatBubbleLeftRight } from "react-icons/hi2";
-import axios from "axios";
+import api from "../../api";
 import toast from "react-hot-toast";
 import ProfileActionPopup from "../../components/ProfileActionPopup";
 
@@ -933,7 +933,7 @@ function Messages() {
         updateMessageInStore(targetMsg._id, { reactions: updatedReactions });
 
         try {
-            await axios.post(`/api/message/react/${targetMsg._id}`, { emoji });
+            await api.post(`/api/message/react/${targetMsg._id}`, { emoji });
         } catch (err) {
             updateMessageInStore(targetMsg._id, { reactions: currentReactions });
             toast.error("Failed to react to message");
@@ -952,7 +952,7 @@ function Messages() {
         setClearingChat(true);
         try {
             const conversationId = String(selectedConversation._id);
-            const res = await axios.post("/api/message/clear-chat", {
+            const res = await api.post("/api/message/clear-chat", {
                 conversationId,
                 timeRange: clearTimeRange,
             });
@@ -1068,7 +1068,7 @@ function Messages() {
         // Fire the API.
         let result;
         try {
-            const res = await axios.post(
+            const res = await api.post(
                 "/api/message/bulk-delete-me",
                 { messageIds: idsToDelete },
                 { withCredentials: true }
@@ -1128,7 +1128,7 @@ function Messages() {
         const snapshotConvId = String(selectedConversation?._id || "");
 
         try {
-            const res = await axios.post(
+            const res = await api.post(
                 "/api/message/bulk-delete-everyone",
                 { messageIds: idsToDelete },
                 { withCredentials: true }
@@ -1198,7 +1198,7 @@ function Messages() {
         }
 
         try {
-            await axios.post(
+            await api.post(
                 "/api/message/restore-delete-me",
                 { messageIds: pending.messageIds },
                 { withCredentials: true }

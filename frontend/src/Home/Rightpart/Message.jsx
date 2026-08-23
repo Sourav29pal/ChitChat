@@ -15,7 +15,7 @@ import {
   FiPhone,
   FiVideo,
 } from "react-icons/fi";
-import axios from "axios";
+import api from "../../api";
 import toast from "react-hot-toast";
 import useConversation from "../../zustand/useConversation";
 import { useAuth } from "../../context/AuthProvider";
@@ -264,7 +264,7 @@ function Message({
 
     // 2. Server API call
     try {
-      await axios.post(`/api/message/react/${message._id}`, { emoji });
+      await api.post(`/api/message/react/${message._id}`, { emoji });
     } catch (err) {
       updateMessageInStore(message._id, { reactions: currentReactions });
       toast.error("Failed to update reaction");

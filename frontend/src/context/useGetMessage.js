@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import useConversation from "../zustand/useConversation.js";
-import axios from "axios";
+import api from "../api";
 
 const useGetMessage = () => {
     const {
@@ -105,7 +105,7 @@ const useGetMessage = () => {
             loadingUnreadBacklogRef.current = false;
 
             try {
-                const res = await axios.get(`/api/message/get/${conversationId}?limit=30`);
+                const res = await api.get(`/api/message/get/${conversationId}?limit=30`);
 
                 if (cancelled) return;
 
@@ -151,7 +151,7 @@ const useGetMessage = () => {
                  * Mark as seen only after the messages required
                  * for the unread separator have been loaded.
                  */
-                await axios.put(`/api/message/seen/${conversationId}`).catch(() => {});
+                await api.put(`/api/message/seen/${conversationId}`).catch(() => {});
             } catch (error) {
                 if (!cancelled) {
                     console.log("Error fetching messages:", error);
@@ -235,7 +235,7 @@ const useGetMessage = () => {
                 const after = newestMsgIdRef.current;
                 const lastUnread = lastUnreadMessageIdRef.current;
 
-                const res = await axios.get(`/api/message/get/${conversationId}?limit=30&after=${after}&until=${lastUnread}`);
+                const res = await api.get(`/api/message/get/${conversationId}?limit=30&after=${after}&until=${lastUnread}`);
 
                 const data = res.data || {};
             const newerMessages = Array.isArray(data)
@@ -306,7 +306,7 @@ const useGetMessage = () => {
                     ? `/api/message/get/${conversationId}?limit=30&after=${after}&until=${lastUnread}`
                     : `/api/message/get/${conversationId}?limit=30&after=${after}`;
 
-            const res = await axios.get(url);
+            const res = await api.get(url);
 
             const { messages: newerMessages = [], hasMoreAfter = false } = res.data;
 

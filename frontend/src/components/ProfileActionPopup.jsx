@@ -18,7 +18,7 @@ import {
   FiRotateCcw,
   FiSmile,
 } from "react-icons/fi";
-import axios from "axios";
+import api from "../api";
 import toast from "react-hot-toast";
 import ProfilePhotoPreview from "./ProfilePhotoPreview";
 import PhotoCropModal from "./PhotoCropModal";
@@ -215,7 +215,7 @@ function ProfileActionPopup({ user, onClose }) {
       formData.append("groupId", userObj._id);
       formData.append("groupAvatar", croppedBlob, "groupAvatar.jpg");
 
-      const res = await axios.put("/api/group/update-details", formData, {
+      const res = await api.put("/api/group/update-details", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -238,7 +238,7 @@ function ProfileActionPopup({ user, onClose }) {
     setUploadingGroupAvatar(true);
     const toastId = toast.loading("Updating group avatar...");
     try {
-      const res = await axios.put("/api/group/update-details", {
+      const res = await api.put("/api/group/update-details", {
         groupId: userObj._id,
         groupAvatar: systemAvatarUrl,
       });
@@ -261,7 +261,7 @@ function ProfileActionPopup({ user, onClose }) {
     setUploadingGroupAvatar(true);
     const toastId = toast.loading("Resetting group photo...");
     try {
-      const res = await axios.put("/api/group/update-details", {
+      const res = await api.put("/api/group/update-details", {
         groupId: userObj._id,
         groupAvatar: DEFAULT_GROUP_AVATAR_URL,
       });

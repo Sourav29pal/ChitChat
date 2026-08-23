@@ -1,6 +1,6 @@
 import React from "react";
 import { useForm } from "react-hook-form";
-import axios from "axios";
+import api from "../api";
 import { useAuth } from "../context/AuthProvider";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -32,7 +32,7 @@ function Signup() {
     };
 
     try {
-      const response = await axios.post("/api/user/signup", userInfo);
+      const response = await api.post("/api/user/signup", userInfo);
 
       if (response.data) {
         toast.success("Account created successfully!");

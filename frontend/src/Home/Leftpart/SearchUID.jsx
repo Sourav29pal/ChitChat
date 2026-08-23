@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../../api";
 import useConversation from "../../zustand/useConversation";
 import { FiSearch, FiUserPlus, FiMessageSquare, FiCheck } from "react-icons/fi";
 import toast from "react-hot-toast";
@@ -19,7 +19,7 @@ function SearchUID() {
 
     setLoading(true);
     try {
-      const res = await axios.get(`/api/user/search?query=${encodeURIComponent(query.trim())}`);
+      const res = await api.get(`/api/user/search?query=${encodeURIComponent(query.trim())}`);
       setSearchResults(res.data);
       if (res.data.length === 0) {
         toast("No user found with that UID / Phone Number", { icon: "🔍" });
@@ -35,7 +35,7 @@ function SearchUID() {
 
   const handleAddContact = async (user) => {
     try {
-      await axios.post("/api/user/add-contact", { contactId: user._id });
+      await api.post("/api/user/add-contact", { contactId: user._id });
       setAddedIds((prev) => [...prev, user._id]);
       setAllUsers((prev) => {
         const list = Array.isArray(prev) ? prev : [];
@@ -50,7 +50,7 @@ function SearchUID() {
 
   const handleStartChat = async (user) => {
     try {
-      await axios.post("/api/user/add-contact", { contactId: user._id });
+      await api.post("/api/user/add-contact", { contactId: user._id });
     } catch (e) {}
     setAllUsers((prev) => {
       const list = Array.isArray(prev) ? prev : [];

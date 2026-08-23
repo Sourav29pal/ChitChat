@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api";
 import useConversation from "../zustand/useConversation.js";
 
 function useGetAllUsers() {
@@ -10,7 +10,7 @@ function useGetAllUsers() {
     const getUsers = async () => {
       setLoading(true);
       try {
-        const response = await axios.get("/api/user/allusers");
+        const response = await api.get("/api/user/allusers");
         const users = response.data;
         setAllUsers(users);
 

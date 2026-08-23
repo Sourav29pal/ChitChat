@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthProvider";
 import io from "socket.io-client";
+import { BACKEND_URL } from "../api";
 const socketContext = createContext();
 
 // it is a hook.
@@ -17,12 +18,7 @@ export const SocketProvider = ({ children }) => {
     useEffect(() => {
         const targetUserId = authUser?.user?._id || authUser?._id;
         if (targetUserId) {
-            const serverUrl =
-                window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-                    ? "http://localhost:4001"
-                    : import.meta.env.VITE_API_URL;
-
-            const socket = io(serverUrl, {
+            const socket = io(BACKEND_URL, {
                 query: {
                     userId: targetUserId,
                 },

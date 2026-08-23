@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import useGetAllUsers from "../../context/useGetAllUser";
 import useConversation from "../../zustand/useConversation";
-import axios from "axios";
+import api from "../../api";
 import {
   FiUsers,
   FiCheck,
@@ -176,14 +176,14 @@ function CreateGroup() {
         formData.append("members", JSON.stringify(selectedMembers));
         formData.append("groupAvatar", groupAvatarBlob, "groupAvatar.jpg");
 
-        res = await axios.post("/api/group/create", formData, {
+        res = await api.post("/api/group/create", formData, {
           headers: {
             "Content-Type": "multipart/form-data",
           },
         });
       } else {
         // System Group Avatar: Clean JSON payload
-        res = await axios.post("/api/group/create", {
+        res = await api.post("/api/group/create", {
           groupName: groupName.trim(),
           groupDescription: groupDescription.trim(),
           groupAvatar: selectedGroupAvatar || DEFAULT_GROUP_AVATAR_URL,

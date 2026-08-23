@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { useSocketContext } from "./SocketContext";
 import useConversation from "../zustand/useConversation.js";
 import { useAuth } from "./AuthProvider.jsx";
-import axios from "axios";
+import api from "../api";
 import toast from "react-hot-toast";
 
 const useGetSocketMessage = () => {
@@ -78,7 +78,7 @@ const useGetSocketMessage = () => {
                     });
                     // Also persist seen status to DB
                     const seenEndpoint = isGroup ? `/api/message/seen/${conversationIdStr}` : `/api/message/seen/${senderIdStr}`;
-                    axios.put(seenEndpoint).catch(() => {});
+                    api.put(seenEndpoint).catch(() => {});
                 }
             } else {
                 incrementUnreadCount(targetKey);
