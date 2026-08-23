@@ -1,14 +1,16 @@
 import api from "../api";
-import React from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../context/AuthProvider";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { FiMail, FiLock } from "react-icons/fi";
+import { FiMail, FiLock, FiLoader } from "react-icons/fi";
 import chitChatLogo from "../assets/chitchat_logo.svg";
+import useConversation from "../zustand/useConversation";
 
 function Login() {
     const [, setAuthUser] = useAuth();
+    const [loading, setLoading] = useState(false);
 
     const {
         register,
@@ -22,15 +24,19 @@ function Login() {
             password: data.password,
         };
 
+        setLoading(true);
+
         try {
             const response = await api.post("/api/user/login", userInfo);
 
             if (response.data) {
                 toast.success("Welcome back!");
+                useConversation.getState().resetConversationState();
                 localStorage.setItem("ChatApp", JSON.stringify(response.data));
                 setAuthUser(response.data);
             }
         } catch (error) {
+            setLoading(false);
             if (error.response) {
                 toast.error(error.response.data.error || "Login failed");
             } else {
@@ -100,9 +106,21 @@ function Login() {
                 {/* Submit */}
                 <button
                     type="submit"
-                    className="w-full py-3 px-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition transform active:scale-[0.98]"
+                    disabled={loading}
+                    className={`w-full py-3 px-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition transform flex items-center justify-center gap-2 ${
+                        loading
+                            ? "opacity-75 cursor-not-allowed pointer-events-none"
+                            : "hover:from-violet-500 hover:to-indigo-500 active:scale-[0.98] cursor-pointer"
+                    }`}
                 >
-                    Log In
+                    {loading ? (
+                        <>
+                            <FiLoader className="animate-spin text-base" />
+                            <span>Logging in...</span>
+                        </>
+                    ) : (
+                        "Log In"
+                    )}
                 </button>
 
                 {/* Footer Link */}

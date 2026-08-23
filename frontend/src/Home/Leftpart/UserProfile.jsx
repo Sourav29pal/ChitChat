@@ -23,6 +23,7 @@ import {
 import toast from "react-hot-toast";
 import PhotoCropModal from "../../components/PhotoCropModal";
 import ProfilePhotoPreview from "../../components/ProfilePhotoPreview";
+import useConversation from "../../zustand/useConversation";
 import {
   DEFAULT_USER_AVATAR_URL,
   USER_AVATAR_ITEMS,
@@ -31,6 +32,7 @@ import {
 function UserProfile() {
   const [authUser, setAuthUser] = useAuth();
   const user = authUser?.user || (authUser && authUser._id ? authUser : null);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   // View vs Edit Mode
   const [isEditMode, setIsEditMode] = useState(false);
@@ -279,14 +281,18 @@ function UserProfile() {
   };
 
   const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
     try {
       await api.post("/api/user/logout");
+      useConversation.getState().resetConversationState();
       localStorage.removeItem("ChatApp");
       setAuthUser(null);
       toast.success("Logged out successfully");
     } catch (error) {
       console.log("Error in logout: ", error);
       toast.error("Failed to logout");
+      setLoggingOut(false);
     }
   };
 
@@ -645,10 +651,24 @@ function UserProfile() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="w-full py-2.5 px-4 bg-slate-900/90 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-500/30 text-slate-400 hover:text-rose-400 font-semibold text-xs rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                disabled={loggingOut}
+                className={`w-full py-2.5 px-4 bg-slate-900/90 border border-slate-800 font-semibold text-xs rounded-xl transition-all flex items-center justify-center gap-2 ${
+                  loggingOut
+                    ? "opacity-75 cursor-not-allowed pointer-events-none text-rose-400/80 border-rose-500/20"
+                    : "hover:bg-rose-500/10 hover:border-rose-500/30 text-slate-400 hover:text-rose-400 active:scale-95 cursor-pointer"
+                }`}
               >
-                <FiLogOut className="text-sm" />
-                <span>Log Out</span>
+                {loggingOut ? (
+                  <>
+                    <FiLoader className="animate-spin text-sm text-rose-400" />
+                    <span className="text-rose-400">Logging out...</span>
+                  </>
+                ) : (
+                  <>
+                    <FiLogOut className="text-sm" />
+                    <span>Log Out</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

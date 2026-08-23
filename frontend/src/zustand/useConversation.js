@@ -568,6 +568,34 @@ const useConversation = create((set) => ({
         unreadCounts: updatedUnread,
       };
     }),
+
+  // ─── Reset Conversation & Navigation State (Auth Lifecycle) ───────────────
+  resetConversationState: () => {
+    try {
+      localStorage.removeItem("chatApp_selectedConv");
+      localStorage.removeItem("chatApp_pinnedIds");
+    } catch (e) {}
+    set({
+      selectedConversation: null,
+      messages: [],
+      realtimeMessages: [],
+      activeTab: "chats",
+      myGroups: [],
+      activeCall: null,
+      imageAttachment: null,
+      sharedMedia: [],
+      lightboxMessageId: null,
+      isChatInfoOpen: false,
+      infoDrawerUser: null,
+      unreadCounts: {},
+      allUsers: [],
+      activeFilter: "all",
+      pinnedIds: [],
+      typingUsers: {},
+      lastMessages: {},
+      callHistory: [],
+    });
+  },
 }));
 
 export default useConversation;
