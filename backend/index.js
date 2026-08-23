@@ -13,19 +13,21 @@ dotenv.config();
 
 // Fail fast if critical environment variables are missing
 if (!process.env.JWT_SECRET) {
-  console.error("FATAL ERROR: JWT_SECRET environment variable is not defined.");
-  process.exit(1);
+    console.error("FATAL ERROR: JWT_SECRET environment variable is not defined.");
+    process.exit(1);
 }
 
 // Middleware (increased limit for base64 image uploads)
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ limit: "15mb", extended: true }));
 app.use(cookieParser());
+
+const allowedOrigin = process.env.NODE_ENV === "production" ? process.env.FRONTEND_URL : "http://localhost:3001";
 app.use(
-  cors({
-    origin: "http://localhost:3001",
-    credentials: true,
-  })
+    cors({
+        origin: allowedOrigin,
+        credentials: true,
+    }),
 );
 
 const PORT = process.env.PORT || 4001;
@@ -38,7 +40,7 @@ app.use("/api/call", callRoute);
 
 // Connect to MongoDB first, then start Server
 connectDB().then(() => {
-  server.listen(PORT, () => {
-    console.log(`Server is Running on port ${PORT}`);
-  });
+    server.listen(PORT, () => {
+        console.log(`Server is Running on port ${PORT}`);
+    });
 });
