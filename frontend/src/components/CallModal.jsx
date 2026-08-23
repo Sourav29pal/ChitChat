@@ -11,6 +11,7 @@ import {
   FiMic,
   FiMicOff,
   FiRepeat,
+  FiLoader,
 } from "react-icons/fi";
 import toast from "react-hot-toast";
 import { getIceConfiguration } from "../config/webrtc.js";
@@ -21,9 +22,11 @@ function CallModal() {
   const { activeCall, setActiveCall } = useConversation();
 
   const [callState, setCallState] = useState("idle"); // 'idle' | 'calling' | 'incoming' | 'connected'
+  const [isWebRtcConnected, setIsWebRtcConnected] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoDisabled, setIsVideoDisabled] = useState(false);
   const [isRemoteVideoDisabled, setIsRemoteVideoDisabled] = useState(false);
+  const [isRemoteAudioMuted, setIsRemoteAudioMuted] = useState(false);
   const [isSwapped, setIsSwapped] = useState(false); // Swap Main & PiP video views
   const [callDuration, setCallDuration] = useState(0);
 
@@ -159,11 +162,12 @@ function CallModal() {
   const processIceQueue = async () => {
     const pc = peerConnectionRef.current;
     if (pc && pc.remoteDescription && pc.remoteDescription.type && iceCandidatesQueue.current.length > 0) {
+      console.log(`[WebRTC] Flushing ${iceCandidatesQueue.current.length} queued ICE candidate(s)...`);
       for (const cand of iceCandidatesQueue.current) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(cand));
         } catch (err) {
-          console.error("Error processing queued ICE candidate:", err);
+          console.error("[WebRTC] Error processing queued ICE candidate:", err);
         }
       }
       iceCandidatesQueue.current = [];
@@ -221,6 +225,7 @@ function CallModal() {
 
     // Incoming Call Handler
     socket.on("incoming-call", ({ signal, from, callerName, callerAvatar, callType }) => {
+      console.log("[WebRTC] Socket received incoming-call from:", from);
       if (callStateRef.current !== "idle") return; // busy
       setCallState("incoming");
       setActiveCall({
@@ -236,6 +241,7 @@ function CallModal() {
 
     // Call Accepted Handler
     socket.on("call-accepted", async ({ signal }) => {
+      console.log("[WebRTC] Socket received call-accepted (remote answer)");
       stopRingtone();
       clearRingTimeout();
       callAnsweredAtRef.current = new Date().toISOString();
@@ -247,13 +253,14 @@ function CallModal() {
           );
           await processIceQueue();
         } catch (err) {
-          console.error("Error setting remote description:", err);
+          console.error("[WebRTC] Error setting remote description from answer:", err);
         }
       }
     });
 
     // Call Rejected Handler
     socket.on("call-rejected", () => {
+      console.log("[WebRTC] Socket received call-rejected");
       stopRingtone();
       clearRingTimeout();
       recordCallLog("declined", 0);
@@ -269,7 +276,7 @@ function CallModal() {
           try {
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
           } catch (err) {
-            console.error("Error adding ICE candidate:", err);
+            console.error("[WebRTC] Error adding ICE candidate:", err);
           }
         } else {
           iceCandidatesQueue.current.push(candidate);
@@ -289,6 +296,7 @@ function CallModal() {
 
     // Call Ended Handler
     socket.on("call-ended", () => {
+      console.log("[WebRTC] Socket received call-ended");
       stopRingtone();
       clearRingTimeout();
       recordCallLog();
@@ -307,7 +315,7 @@ function CallModal() {
     };
   }, [socket]);
 
-  // Generate a fallback video stream using canvas if hardware camera is busy/locked by another tab
+  // Generate a fallback video stream using canvas if hardware camera is busy/locked by another process
   const createCanvasVideoStream = (label = "User Video") => {
     const canvas = document.createElement("canvas");
     canvas.width = 640;
@@ -347,80 +355,134 @@ function CallModal() {
     };
     draw();
 
-    const canvasStream = canvas.captureStream(30);
-    return canvasStream.getVideoTracks()[0];
+    const canvasStream = canvas.captureStream ? canvas.captureStream(30) : null;
+    return canvasStream ? canvasStream.getVideoTracks()[0] : null;
   };
 
-  // Peer Connection Setup
+  // Peer Connection Setup with diagnostic listeners & robust ontrack track merging
   const createPeerConnection = (targetUserId) => {
+    console.log("[WebRTC] Creating RTCPeerConnection for target:", targetUserId);
     const pc = new RTCPeerConnection(getIceConfiguration());
 
     pc.onicecandidate = (event) => {
       if (event.candidate && socket) {
+        console.log("[WebRTC] Generated local ICE candidate:", event.candidate.type, event.candidate.protocol);
         socket.emit("ice-candidate", { to: targetUserId, candidate: event.candidate });
       }
     };
 
     pc.ontrack = (event) => {
-      let stream = event.streams[0];
-      if (!stream) {
-        stream = new MediaStream();
-        stream.addTrack(event.track);
+      console.log("[WebRTC] ontrack received track:", event.track.kind, "id:", event.track.id);
+      let stream = event.streams && event.streams[0];
+
+      if (stream) {
+        remoteStreamRef.current = stream;
+        setRemoteStream(stream);
+      } else {
+        // If stream is not pre-grouped by browser, maintain a single persistent remote MediaStream
+        if (!remoteStreamRef.current) {
+          remoteStreamRef.current = new MediaStream();
+        }
+        const existingTracks = remoteStreamRef.current.getTracks();
+        const alreadyHasTrack = existingTracks.some((t) => t.id === event.track.id);
+        if (!alreadyHasTrack) {
+          remoteStreamRef.current.addTrack(event.track);
+        }
+        setRemoteStream(new MediaStream(remoteStreamRef.current.getTracks()));
       }
-      remoteStreamRef.current = stream;
-      setRemoteStream(stream);
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log("[WebRTC] connectionState:", pc.connectionState);
+      if (pc.connectionState === "connected") {
+        setIsWebRtcConnected(true);
+      } else if (
+        pc.connectionState === "failed" ||
+        pc.connectionState === "disconnected" ||
+        pc.connectionState === "closed"
+      ) {
+        setIsWebRtcConnected(false);
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log("[WebRTC] iceConnectionState:", pc.iceConnectionState);
+      if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+        setIsWebRtcConnected(true);
+      } else if (
+        pc.iceConnectionState === "failed" ||
+        pc.iceConnectionState === "disconnected"
+      ) {
+        setIsWebRtcConnected(false);
+      }
+    };
+
+    pc.onicegatheringstatechange = () => {
+      console.log("[WebRTC] iceGatheringState:", pc.iceGatheringState);
+    };
+
+    pc.onsignalingstatechange = () => {
+      console.log("[WebRTC] signalingState:", pc.signalingState);
+    };
+
+    pc.onicecandidateerror = (event) => {
+      console.warn("[WebRTC] ICE candidate error:", event.errorText || event.errorCode);
     };
 
     peerConnectionRef.current = pc;
     return pc;
   };
 
-  // Get Media Stream with robust fallback & virtual video feed handling
+  // Get Media Stream with single atomic getUserMedia call & descriptive error handling
   const getMedia = async (callType) => {
-    let audioTrack = null;
-    let videoTrack = null;
-
-    // 1. Try real hardware audio
     try {
-      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioTrack = audioStream.getAudioTracks()[0];
+      const constraints = {
+        audio: true,
+        video: callType === "video" ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      setIsVideoDisabled(false);
+      setIsAudioMuted(false);
+      return stream;
     } catch (err) {
-      console.warn("Could not get hardware mic, creating silent audio track:", err);
-      try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        const ctx = new AudioCtx();
-        const osc = ctx.createOscillator();
-        const dst = ctx.createMediaStreamDestination();
-        osc.connect(dst);
-        osc.start();
-        audioTrack = dst.stream.getAudioTracks()[0];
-        setIsAudioMuted(true);
-      } catch (e) {
-        console.warn("Silent audio track fallback failed:", e);
+      console.warn("[WebRTC] getUserMedia failed:", err.name, err.message);
+
+      let userMessage = "Unable to access camera or microphone.";
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        userMessage = "Camera and microphone permission is required for calls.";
+      } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+        userMessage = "No camera or microphone found on this device.";
+      } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+        userMessage = "Your camera or microphone is in use by another application.";
+      } else if (err.name === "OverconstrainedError") {
+        userMessage = "Your media device constraints could not be satisfied.";
+      } else if (err.name === "SecurityError") {
+        userMessage = "Media access is restricted in this browser context.";
       }
-    }
 
-    // 2. If video call, try hardware camera, fallback to virtual video stream if camera is busy (2 tabs on 1 PC)
-    if (callType === "video") {
-      try {
-        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        videoTrack = videoStream.getVideoTracks()[0];
-        setIsVideoDisabled(false);
-      } catch (err) {
-        console.warn("Hardware camera in use by another tab/process, providing virtual video feed:", err);
-        videoTrack = createCanvasVideoStream(authUser?.user?.fullname || "User");
-        setIsVideoDisabled(false);
+      toast.error(userMessage);
+
+      // Fallback: try audio-only if video failed, or generate virtual canvas if camera locked
+      if (callType === "video") {
+        try {
+          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const videoTrack = createCanvasVideoStream(authUser?.user?.fullname || "User");
+          const fallbackTracks = [audioStream.getAudioTracks()[0]];
+          if (videoTrack) fallbackTracks.push(videoTrack);
+          const fallbackStream = new MediaStream(fallbackTracks);
+          localStreamRef.current = fallbackStream;
+          setLocalStream(fallbackStream);
+          return fallbackStream;
+        } catch (audioErr) {
+          console.warn("[WebRTC] Audio fallback also failed:", audioErr);
+        }
       }
+
+      throw err;
     }
-
-    const tracks = [];
-    if (audioTrack) tracks.push(audioTrack);
-    if (videoTrack) tracks.push(videoTrack);
-
-    const combinedStream = new MediaStream(tracks);
-    localStreamRef.current = combinedStream;
-    setLocalStream(combinedStream);
-    return combinedStream;
   };
 
   // Initiate Outgoing Call
@@ -447,7 +509,7 @@ function CallModal() {
         callType,
       });
     } catch (err) {
-      console.error("Error initiating call:", err);
+      console.error("[WebRTC] Error initiating call:", err);
       cleanupCall();
     }
   };
@@ -475,7 +537,7 @@ function CallModal() {
         signal: answer,
       });
     } catch (err) {
-      console.error("Error accepting call:", err);
+      console.error("[WebRTC] Error accepting call:", err);
       cleanupCall();
     }
   };
@@ -544,6 +606,8 @@ function CallModal() {
     callStartedAtRef.current = null;
     callAnsweredAtRef.current = null;
     callLoggedRef.current = false;
+    setIsWebRtcConnected(false);
+
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
       localStreamRef.current = null;
@@ -575,11 +639,11 @@ function CallModal() {
   const myAvatar = authUser?.user?.avatar;
 
   // Streams mapping based on isSwapped state
-  const mainStream = isSwapped ? localStream : (remoteStream || localStream);
-  const pipStream = isSwapped ? (remoteStream || localStream) : localStream;
+  const mainStream = isSwapped ? localStream : remoteStream;
+  const pipStream = isSwapped ? remoteStream : localStream;
 
-  const mainIsVideoDisabled = isSwapped ? isVideoDisabled : (remoteStream ? isRemoteVideoDisabled : isVideoDisabled);
-  const pipIsVideoDisabled = isSwapped ? (remoteStream ? isRemoteVideoDisabled : isVideoDisabled) : isVideoDisabled;
+  const mainIsVideoDisabled = isSwapped ? isVideoDisabled : isRemoteVideoDisabled;
+  const pipIsVideoDisabled = isSwapped ? isRemoteVideoDisabled : isVideoDisabled;
 
   const mainName = isSwapped ? myName : callerName;
   const mainAvatar = isSwapped ? myAvatar : callerAvatar;
@@ -683,7 +747,7 @@ function CallModal() {
             ref={(el) => {
               if (el && remoteStream) {
                 el.srcObject = remoteStream;
-                el.play().catch((err) => console.log("Remote audio autoplay error:", err));
+                el.play().catch((err) => console.log("[WebRTC] Remote audio autoplay error:", err));
               }
             }}
             autoPlay
@@ -692,17 +756,34 @@ function CallModal() {
 
           {/* Main Video Screen (or Voice Avatar View) */}
           <div className="flex-1 bg-slate-950 relative flex items-center justify-center overflow-hidden">
-            {/* Live Call Duration Floating Badge */}
+            {/* Live Call Duration / Connection Status Floating Badge */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3.5 py-1.5 rounded-full bg-slate-900/85 backdrop-blur-md border border-slate-700/60 shadow-lg flex items-center gap-2 z-20">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isWebRtcConnected ? "bg-emerald-400 animate-pulse" : "bg-amber-400 animate-ping"
+                }`}
+              />
               <span className="text-xs font-semibold tracking-wider text-slate-100 font-mono">
-                {formatTimer(callDuration)}
+                {isWebRtcConnected ? formatTimer(callDuration) : "Connecting Media..."}
               </span>
             </div>
 
             {isVideoCall ? (
-              mainIsVideoDisabled ? (
-                /* Camera Turned Off Screen for Main View */
+              mainStream && !mainIsVideoDisabled ? (
+                <video
+                  ref={(el) => {
+                    if (el && mainStream) {
+                      el.srcObject = mainStream;
+                      el.play().catch((err) => console.log("[WebRTC] Main video play error:", err));
+                    }
+                  }}
+                  autoPlay
+                  playsInline
+                  muted={isSwapped} // mute local stream audio if swapped into main view
+                  className={`w-full h-full object-cover ${isSwapped ? "mirror" : ""}`}
+                />
+              ) : (
+                /* Camera Turned Off or Connecting Screen for Main View */
                 <div className="text-center space-y-4 z-10 animate-fade-in">
                   <div className="relative inline-block">
                     <img
@@ -711,29 +792,24 @@ function CallModal() {
                       className="w-32 h-32 rounded-full mx-auto object-cover border-4 border-indigo-500/50 shadow-2xl"
                     />
                     <span className="absolute bottom-0 right-0 p-2 bg-slate-800 border-2 border-slate-900 rounded-full text-rose-400 text-lg shadow-lg">
-                      <FiVideoOff />
+                      {mainIsVideoDisabled ? (
+                        <FiVideoOff />
+                      ) : (
+                        <FiLoader className="animate-spin text-indigo-400 text-base" />
+                      )}
                     </span>
                   </div>
                   <div>
                     <h3 className="text-2xl font-bold text-white">{mainName}</h3>
-                    <p className="text-xs text-rose-400 font-semibold uppercase tracking-wider mt-1">
-                      Camera Turned Off
+                    <p className="text-xs font-semibold uppercase tracking-wider mt-1 text-slate-400">
+                      {mainIsVideoDisabled
+                        ? "Camera Turned Off"
+                        : isWebRtcConnected
+                        ? "Connected"
+                        : "Connecting Media..."}
                     </p>
                   </div>
                 </div>
-              ) : (
-                <video
-                  ref={(el) => {
-                    if (el && mainStream) {
-                      el.srcObject = mainStream;
-                      el.play().catch((err) => console.log("Main video play error:", err));
-                    }
-                  }}
-                  autoPlay
-                  playsInline
-                  muted // main audio played by dedicated audio element above
-                  className={`w-full h-full object-cover ${isSwapped ? "mirror" : ""}`}
-                />
               )
             ) : (
               <div className="text-center space-y-4">
@@ -743,8 +819,14 @@ function CallModal() {
                   className="w-32 h-32 rounded-full mx-auto object-cover ring-2 ring-white/90 shadow-2xl animate-pulse"
                 />
                 <h3 className="text-2xl font-bold text-white">{callerName}</h3>
-                <p className="text-sm text-emerald-400 font-medium font-mono">
-                  Connected • {formatTimer(callDuration)}
+                <p
+                  className={`text-sm font-medium font-mono ${
+                    isWebRtcConnected ? "text-emerald-400" : "text-amber-400"
+                  }`}
+                >
+                  {isWebRtcConnected
+                    ? `Connected • ${formatTimer(callDuration)}`
+                    : "Connecting audio..."}
                 </p>
               </div>
             )}
@@ -756,24 +838,12 @@ function CallModal() {
                 className="absolute top-4 right-4 w-48 h-36 rounded-2xl overflow-hidden border-2 border-indigo-500/60 shadow-2xl bg-slate-900/90 z-20 cursor-pointer group hover:border-indigo-400 transition"
                 title="Click to Swap Big & Small Camera View"
               >
-                {pipIsVideoDisabled ? (
-                  /* Camera Turned Off Screen for PiP View */
-                  <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-900">
-                    <img
-                      src={pipAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${pipName}`}
-                      alt={pipName}
-                      className="w-12 h-12 rounded-full object-cover ring-[1.5px] ring-white/85 mb-1"
-                    />
-                    <span className="text-[10px] text-rose-400 font-semibold flex items-center gap-1">
-                      <FiVideoOff /> Camera Off
-                    </span>
-                  </div>
-                ) : (
+                {pipStream && !pipIsVideoDisabled ? (
                   <video
                     ref={(el) => {
                       if (el && pipStream) {
                         el.srcObject = pipStream;
-                        el.play().catch((err) => console.log("PiP video play error:", err));
+                        el.play().catch((err) => console.log("[WebRTC] PiP video play error:", err));
                       }
                     }}
                     autoPlay
@@ -781,6 +851,26 @@ function CallModal() {
                     muted={!isSwapped} // mute local stream audio in PiP
                     className={`w-full h-full object-cover ${!isSwapped ? "mirror" : ""}`}
                   />
+                ) : (
+                  /* Camera Turned Off / Connecting Screen for PiP View */
+                  <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-900">
+                    <img
+                      src={pipAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${pipName}`}
+                      alt={pipName}
+                      className="w-12 h-12 rounded-full object-cover ring-[1.5px] ring-white/85 mb-1"
+                    />
+                    <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
+                      {pipIsVideoDisabled ? (
+                        <>
+                          <FiVideoOff className="text-rose-400" /> Camera Off
+                        </>
+                      ) : (
+                        <>
+                          <FiLoader className="animate-spin text-indigo-400 text-xs" /> Connecting
+                        </>
+                      )}
+                    </span>
+                  </div>
                 )}
 
                 {/* Hover Swap Indicator */}
