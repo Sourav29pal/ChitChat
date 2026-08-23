@@ -13,6 +13,7 @@ import {
   FiUpload,
   FiRotateCcw,
   FiTrash2,
+  FiLoader,
 } from "react-icons/fi";
 import {
   DEFAULT_USER_AVATAR_URL,
@@ -509,10 +510,17 @@ function Onboarding() {
             <button
               type="submit"
               disabled={loading || !displayName.trim()}
-              className="w-full py-3.5 px-6 bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 hover:from-violet-500 hover:via-indigo-500 hover:to-cyan-400 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-[0_0_30px_rgba(99,102,241,0.4)] transition-all duration-300 transform hover:scale-[1.01] active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className={`w-full py-3.5 px-6 bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-[0_0_30px_rgba(99,102,241,0.4)] transition-all duration-300 transform flex items-center justify-center gap-2 ${
+                loading || !displayName.trim()
+                  ? "opacity-50 cursor-not-allowed pointer-events-none"
+                  : "hover:from-violet-500 hover:via-indigo-500 hover:to-cyan-400 hover:scale-[1.01] active:scale-[0.98] cursor-pointer"
+              }`}
             >
               {loading ? (
-                "Saving Profile..."
+                <>
+                  <FiLoader className="animate-spin text-sm" />
+                  <span>Saving Profile...</span>
+                </>
               ) : (
                 <>
                   <span>Continue to Chat</span>
