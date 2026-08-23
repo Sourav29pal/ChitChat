@@ -4,13 +4,14 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "../context/AuthProvider";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { FiMail, FiLock, FiLoader } from "react-icons/fi";
+import { FiMail, FiLock, FiLoader, FiEye, FiEyeOff } from "react-icons/fi";
 import chitChatLogo from "../assets/chitchat_logo.svg";
 import useConversation from "../zustand/useConversation";
 
 function Login() {
     const [, setAuthUser] = useAuth();
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const {
         register,
@@ -37,10 +38,14 @@ function Login() {
             }
         } catch (error) {
             setLoading(false);
-            if (error.response) {
-                toast.error(error.response.data.error || "Login failed");
+            if (!error.response) {
+                toast.error("Unable to reach the server. Please check your connection.");
+            } else if (error.response.status >= 500) {
+                toast.error("Unable to connect to the server. Please try again.");
+            } else if (error.response.status === 400 || error.response.status === 401) {
+                toast.error("Invalid email or password.");
             } else {
-                toast.error("Something went wrong");
+                toast.error(error.response.data?.error || "Something went wrong. Please try again.");
             }
         }
     };
@@ -75,12 +80,15 @@ function Login() {
 
                 {/* Email */}
                 <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-300">Email Address</label>
+                    <label htmlFor="email" className="text-xs font-semibold text-slate-300">Email Address</label>
                     <div className="relative">
                         <FiMail className="absolute left-3.5 top-3.5 text-slate-500 text-lg" />
                         <input
+                            id="email"
                             type="email"
-                            placeholder="user@example.com"
+                            placeholder="you@gmail.com"
+                            autoComplete="email"
+                            aria-invalid={errors.email ? "true" : "false"}
                             {...register("email", { required: true })}
                             className="w-full pl-10 pr-4 py-2.5 bg-slate-800/60 border border-slate-700/60 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
                         />
@@ -90,15 +98,27 @@ function Login() {
 
                 {/* Password */}
                 <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-300">Password</label>
+                    <label htmlFor="password" className="text-xs font-semibold text-slate-300">Password</label>
                     <div className="relative">
                         <FiLock className="absolute left-3.5 top-3.5 text-slate-500 text-lg" />
                         <input
-                            type="password"
-                            placeholder="••••••••"
+                            id="password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Enter your password"
+                            autoComplete="current-password"
+                            aria-invalid={errors.password ? "true" : "false"}
                             {...register("password", { required: true })}
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-800/60 border border-slate-700/60 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
+                            className="w-full pl-10 pr-10 py-2.5 bg-slate-800/60 border border-slate-700/60 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
                         />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-200 transition focus:outline-none cursor-pointer"
+                            tabIndex={-1}
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                            {showPassword ? <FiEyeOff className="text-lg" /> : <FiEye className="text-lg" />}
+                        </button>
                     </div>
                     {errors.password && <span className="text-rose-400 text-xs pl-1">Password is required</span>}
                 </div>

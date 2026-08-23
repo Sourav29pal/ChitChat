@@ -29,8 +29,17 @@ const generateUniqueUID = async () => {
 export const signup = async (req, res) => {
     const { fullname, email, password, confirmPassword, avatar, about } = req.body;
     try {
+        if (!password || !confirmPassword) {
+            return res.status(400).json({ error: "Please fill in all fields" });
+        }
         if (password !== confirmPassword) {
             return res.status(400).json({ error: "Passwords do not match" });
+        }
+        const passwordPolicyRegex = /^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$/;
+        if (!passwordPolicyRegex.test(password)) {
+            return res.status(400).json({
+                error: "Password must be at least 8 characters and include an uppercase letter and a special character",
+            });
         }
         const cleanEmail = email ? email.toLowerCase().trim() : "";
         const existingUser = await User.findOne({ email: cleanEmail });
