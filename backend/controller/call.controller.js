@@ -186,3 +186,63 @@ export const clearCallHistory = async (req, res) => {
         return res.status(500).json({ error: "Internal server error" });
     }
 };
+
+// Return configured ICE (STUN/TURN) servers for authenticated WebRTC calls
+export const getIceServers = async (req, res) => {
+    try {
+        const defaultIceServers = [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun2.l.google.com:19302" },
+        ];
+
+        // 1. Direct ICE_SERVERS JSON array from backend environment (e.g. Render)
+        if (process.env.ICE_SERVERS) {
+            try {
+                const parsed = JSON.parse(process.env.ICE_SERVERS);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return res.status(200).json({ iceServers: parsed });
+                }
+            } catch (parseErr) {
+                console.warn("[WebRTC] Error parsing ICE_SERVERS from environment:", parseErr.message);
+            }
+        }
+
+        // 2. Separate TURN server environment variables (e.g. TURN_URL, TURN_USERNAME, TURN_PASSWORD / TURN_CREDENTIAL)
+        if (process.env.TURN_URL && process.env.TURN_USERNAME && (process.env.TURN_PASSWORD || process.env.TURN_CREDENTIAL)) {
+            const turnUrls = process.env.TURN_URL.split(",").map((u) => u.trim());
+            const iceServers = [
+                ...defaultIceServers,
+                {
+                    urls: turnUrls,
+                    username: process.env.TURN_USERNAME,
+                    credential: process.env.TURN_PASSWORD || process.env.TURN_CREDENTIAL,
+                },
+            ];
+            return res.status(200).json({ iceServers });
+        }
+
+        // 3. Metered.ca TURN API Integration (if METERED_API_KEY and METERED_DOMAIN are set on backend)
+        if (process.env.METERED_API_KEY && process.env.METERED_DOMAIN) {
+            try {
+                const response = await fetch(
+                    `https://${process.env.METERED_DOMAIN}.metered.live/api/v1/turn/credentials?apiKey=${process.env.METERED_API_KEY}`
+                );
+                if (response.ok) {
+                    const meteredIceServers = await response.json();
+                    if (Array.isArray(meteredIceServers)) {
+                        return res.status(200).json({ iceServers: meteredIceServers });
+                    }
+                }
+            } catch (meteredErr) {
+                console.warn("[WebRTC] Metered API fetch error, falling back to default STUN:", meteredErr.message);
+            }
+        }
+
+        // Default: STUN servers
+        return res.status(200).json({ iceServers: defaultIceServers });
+    } catch (error) {
+        console.error("Error in getIceServers controller:", error);
+        return res.status(500).json({ error: "Failed to retrieve ICE configuration" });
+    }
+};
