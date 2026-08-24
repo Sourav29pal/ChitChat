@@ -14,7 +14,8 @@ import {
   FiLoader,
 } from "react-icons/fi";
 import toast from "react-hot-toast";
-import { getIceConfiguration } from "../config/webrtc.js";
+import { fetchIceConfiguration, getIceConfiguration } from "../config/webrtc.js";
+import { DEFAULT_USER_AVATAR_URL } from "../config/systemAvatars.js";
 
 function CallModal() {
   const { socket } = useSocketContext();
@@ -152,7 +153,7 @@ function CallModal() {
           useConversation.getState().addRealtimeMessage(res.data);
         }
         useConversation.getState().setLastMessage(otherUserId, res.data);
-        useConversation.getState().bumpUserToTop(otherUserId);
+        useConversation.getState().bumpUserToTop(otherUserId, res.data);
       }
     } catch (err) {
       console.error("Failed to log call:", err);
@@ -315,50 +316,6 @@ function CallModal() {
     };
   }, [socket]);
 
-  // Generate a fallback video stream using canvas if hardware camera is busy/locked by another process
-  const createCanvasVideoStream = (label = "User Video") => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 640;
-    canvas.height = 480;
-    const ctx = canvas.getContext("2d");
-
-    let angle = 0;
-    const draw = () => {
-      angle += 0.04;
-      // Dark gradient background
-      const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      grad.addColorStop(0, "#0f172a");
-      grad.addColorStop(1, "#1e1b4b");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Animated glowing circle
-      const radius = 55 + Math.sin(angle) * 8;
-      ctx.beginPath();
-      ctx.arc(canvas.width / 2, canvas.height / 2 - 20, radius, 0, Math.PI * 2);
-      ctx.fillStyle = "#6366f1";
-      ctx.shadowColor = "#818cf8";
-      ctx.shadowBlur = 20;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      // User label & text
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 22px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("📹 " + label, canvas.width / 2, canvas.height / 2 + 65);
-      ctx.font = "13px sans-serif";
-      ctx.fillStyle = "#a5b4fc";
-      ctx.fillText("(Camera active - Shared Device Feed)", canvas.width / 2, canvas.height / 2 + 95);
-
-      requestAnimationFrame(draw);
-    };
-    draw();
-
-    const canvasStream = canvas.captureStream ? canvas.captureStream(30) : null;
-    return canvasStream ? canvasStream.getVideoTracks()[0] : null;
-  };
-
   // Peer Connection Setup with diagnostic listeners & robust ontrack track merging
   const createPeerConnection = (targetUserId) => {
     console.log("[WebRTC] Creating RTCPeerConnection for target:", targetUserId);
@@ -366,7 +323,6 @@ function CallModal() {
 
     pc.onicecandidate = (event) => {
       if (event.candidate && socket) {
-        console.log("[WebRTC] Generated local ICE candidate:", event.candidate.type, event.candidate.protocol);
         socket.emit("ice-candidate", { to: targetUserId, candidate: event.candidate });
       }
     };
@@ -396,8 +352,10 @@ function CallModal() {
       console.log("[WebRTC] connectionState:", pc.connectionState);
       if (pc.connectionState === "connected") {
         setIsWebRtcConnected(true);
+      } else if (pc.connectionState === "failed") {
+        setIsWebRtcConnected(false);
+        toast.error("Unable to establish call connection. Please check your network and try again.");
       } else if (
-        pc.connectionState === "failed" ||
         pc.connectionState === "disconnected" ||
         pc.connectionState === "closed"
       ) {
@@ -415,14 +373,6 @@ function CallModal() {
       ) {
         setIsWebRtcConnected(false);
       }
-    };
-
-    pc.onicegatheringstatechange = () => {
-      console.log("[WebRTC] iceGatheringState:", pc.iceGatheringState);
-    };
-
-    pc.onsignalingstatechange = () => {
-      console.log("[WebRTC] signalingState:", pc.signalingState);
     };
 
     pc.onicecandidateerror = (event) => {
@@ -464,23 +414,6 @@ function CallModal() {
       }
 
       toast.error(userMessage);
-
-      // Fallback: try audio-only if video failed, or generate virtual canvas if camera locked
-      if (callType === "video") {
-        try {
-          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          const videoTrack = createCanvasVideoStream(authUser?.user?.fullname || "User");
-          const fallbackTracks = [audioStream.getAudioTracks()[0]];
-          if (videoTrack) fallbackTracks.push(videoTrack);
-          const fallbackStream = new MediaStream(fallbackTracks);
-          localStreamRef.current = fallbackStream;
-          setLocalStream(fallbackStream);
-          return fallbackStream;
-        } catch (audioErr) {
-          console.warn("[WebRTC] Audio fallback also failed:", audioErr);
-        }
-      }
-
       throw err;
     }
   };
@@ -492,6 +425,7 @@ function CallModal() {
       setCallState("calling");
       playRingtone();
 
+      await fetchIceConfiguration();
       const stream = await getMedia(callType);
       const pc = createPeerConnection(targetUser._id);
 
@@ -521,6 +455,7 @@ function CallModal() {
 
     try {
       setCallState("connected");
+      await fetchIceConfiguration();
       const stream = await getMedia(activeCall.callType);
       const pc = createPeerConnection(activeCall.callerId);
 
@@ -664,8 +599,13 @@ function CallModal() {
           <div className="relative inline-block">
             <span className="absolute inset-0 rounded-full bg-indigo-500/30 animate-ping"></span>
             <img
-              src={callerAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${callerName}`}
+              src={callerAvatar || DEFAULT_USER_AVATAR_URL}
               alt={callerName}
+              onError={(e) => {
+                if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                  e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                }
+              }}
               className="w-24 h-24 rounded-full mx-auto object-cover ring-2 ring-white/90 shadow-xl relative z-10"
             />
           </div>
@@ -716,8 +656,13 @@ function CallModal() {
             <div className="relative inline-block">
               <span className="absolute inset-0 rounded-full bg-violet-500/30 animate-pulse"></span>
               <img
-                src={callerAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${callerName}`}
+                src={callerAvatar || DEFAULT_USER_AVATAR_URL}
                 alt={callerName}
+                onError={(e) => {
+                  if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                    e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                  }
+                }}
                 className="w-24 h-24 rounded-full mx-auto object-cover ring-2 ring-white/90 shadow-xl relative z-10"
               />
             </div>
@@ -787,8 +732,13 @@ function CallModal() {
                 <div className="text-center space-y-4 z-10 animate-fade-in">
                   <div className="relative inline-block">
                     <img
-                      src={mainAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${mainName}`}
+                      src={mainAvatar || DEFAULT_USER_AVATAR_URL}
                       alt={mainName}
+                      onError={(e) => {
+                        if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                          e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                        }
+                      }}
                       className="w-32 h-32 rounded-full mx-auto object-cover border-4 border-indigo-500/50 shadow-2xl"
                     />
                     <span className="absolute bottom-0 right-0 p-2 bg-slate-800 border-2 border-slate-900 rounded-full text-rose-400 text-lg shadow-lg">
@@ -814,8 +764,13 @@ function CallModal() {
             ) : (
               <div className="text-center space-y-4">
                 <img
-                  src={callerAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${callerName}`}
+                  src={callerAvatar || DEFAULT_USER_AVATAR_URL}
                   alt={callerName}
+                  onError={(e) => {
+                    if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                      e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                    }
+                  }}
                   className="w-32 h-32 rounded-full mx-auto object-cover ring-2 ring-white/90 shadow-2xl animate-pulse"
                 />
                 <h3 className="text-2xl font-bold text-white">{callerName}</h3>
@@ -855,8 +810,13 @@ function CallModal() {
                   /* Camera Turned Off / Connecting Screen for PiP View */
                   <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-900">
                     <img
-                      src={pipAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${pipName}`}
+                      src={pipAvatar || DEFAULT_USER_AVATAR_URL}
                       alt={pipName}
+                      onError={(e) => {
+                        if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                          e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                        }
+                      }}
                       className="w-12 h-12 rounded-full object-cover ring-[1.5px] ring-white/85 mb-1"
                     />
                     <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
