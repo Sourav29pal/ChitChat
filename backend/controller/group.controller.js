@@ -556,9 +556,9 @@ export const updateGroupDetails = async (req, res) => {
         return res.status(400).json({ error: "Group name cannot be empty" });
       }
       group.groupName = groupName.trim();
-      // If groupAvatar is using default dicebear seed, refresh it with new group name
-      if (!group.groupAvatar || group.groupAvatar.includes("dicebear.com/7.x/identicon/svg?seed=")) {
-        group.groupAvatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(group.groupName)}`;
+      // If groupAvatar is not set, ensure it uses the default ChitChat group avatar
+      if (!group.groupAvatar) {
+        group.groupAvatar = DEFAULT_GROUP_AVATAR_URL;
       }
     }
     let oldGroupAvatarPublicIdToDelete = null;

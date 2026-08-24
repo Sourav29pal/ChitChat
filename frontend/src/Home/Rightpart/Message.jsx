@@ -20,6 +20,7 @@ import toast from "react-hot-toast";
 import useConversation from "../../zustand/useConversation";
 import { useAuth } from "../../context/AuthProvider";
 import EmojiPicker from "./EmojiPicker.jsx";
+import { DEFAULT_USER_AVATAR_URL } from "../../config/systemAvatars.js";
 
 const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
@@ -72,11 +73,7 @@ function Message({
   const senderObj = typeof message.senderId === "object" ? message.senderId : null;
   const senderId = senderObj ? senderObj._id : message.senderId;
   const senderName = senderObj?.fullname || "";
-  const senderAvatar =
-    senderObj?.avatar ||
-    `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(
-      senderName || senderId || "User"
-    )}`;
+  const senderAvatar = senderObj?.avatar || DEFAULT_USER_AVATAR_URL;
 
   const itsMe = String(senderId) === myId;
   const isGroup = Boolean(selectedConversation?.isGroup);
@@ -381,6 +378,11 @@ function Message({
             <img
               src={senderAvatar}
               alt={senderName || "User"}
+              onError={(e) => {
+                if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                  e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                }
+              }}
               onClick={(e) => {
                 e.stopPropagation();
                 onAvatarClick?.(senderObj || {
@@ -958,9 +960,7 @@ function Message({
                 const uId = uObj ? String(uObj._id) : String(r.userId);
                 const isMe = uId === myId;
                 const name = isMe ? "You" : uObj?.fullname || "User";
-                const avatar =
-                  uObj?.avatar ||
-                  `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`;
+                const avatar = uObj?.avatar || DEFAULT_USER_AVATAR_URL;
 
                 return isMe ? (
                   /* Current User: Entire row is clickable to remove reaction with subtle normal hover */
@@ -977,6 +977,11 @@ function Message({
                       <img
                         src={avatar}
                         alt={name}
+                        onError={(e) => {
+                          if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                            e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                          }
+                        }}
                         className="w-8 h-8 rounded-full object-cover ring-[1.5px] ring-white/85 shadow-sm flex-shrink-0"
                       />
                       <div className="min-w-0">
@@ -1002,6 +1007,11 @@ function Message({
                       <img
                         src={avatar}
                         alt={name}
+                        onError={(e) => {
+                          if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                            e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                          }
+                        }}
                         className="w-8 h-8 rounded-full object-cover ring-[1.5px] ring-white/85 shadow-sm flex-shrink-0"
                       />
                       <div className="min-w-0">

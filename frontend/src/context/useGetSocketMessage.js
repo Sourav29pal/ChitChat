@@ -32,12 +32,24 @@ const useGetSocketMessage = () => {
         if (!socket) return;
 
         socket.on("newMessage", (newMessage) => {
-            const senderIdStr = String(newMessage.senderId?._id || newMessage.senderId);
-            const receiverIdStr = newMessage.receiverId ? String(newMessage.receiverId) : null;
-            const conversationIdStr = newMessage.conversationId ? String(newMessage.conversationId) : null;
+            const myIdStr = String(authUser?.user?._id || authUser?._id || "");
+            const senderIdStr = String(newMessage.senderId?._id || newMessage.senderId || "");
+            const receiverIdStr = newMessage.receiverId ? String(newMessage.receiverId?._id || newMessage.receiverId) : null;
+            const conversationIdStr = newMessage.conversationId ? String(newMessage.conversationId?._id || newMessage.conversationId) : null;
 
             const isGroup = !receiverIdStr;
-            const targetKey = isGroup ? conversationIdStr : senderIdStr;
+            const isSentByMe = Boolean(myIdStr && senderIdStr === myIdStr);
+
+            // For groups: target conversation is conversationIdStr.
+            // For 1-on-1 direct chats: target conversation is the OTHER person's ID (partner).
+            // If I am sender, partner is receiverIdStr. If I am receiver, partner is senderIdStr.
+            const targetKey = isGroup
+                ? conversationIdStr
+                : isSentByMe
+                ? receiverIdStr
+                : senderIdStr;
+
+            if (!targetKey) return;
 
             // Automatically clear typing status for this sender on receiving a message
             if (isGroup && conversationIdStr) {
@@ -48,12 +60,12 @@ const useGetSocketMessage = () => {
                 }
                 setTypingUser(conversationIdStr, senderIdStr, false);
             } else if (!isGroup && senderIdStr) {
-                const timerKey = `${senderIdStr}_${senderIdStr}`;
+                const timerKey = `${targetKey}_${senderIdStr}`;
                 if (typingTimeoutsRef.current[timerKey]) {
                     clearTimeout(typingTimeoutsRef.current[timerKey]);
                     delete typingTimeoutsRef.current[timerKey];
                 }
-                setTypingUser(senderIdStr, senderIdStr, false);
+                setTypingUser(targetKey, senderIdStr, false);
             }
 
             // Determine if this message belongs to the currently viewed conversation
@@ -61,18 +73,16 @@ const useGetSocketMessage = () => {
             const isCurrentSelected = currentSelectedId && currentSelectedId === targetKey;
 
             if (isCurrentSelected) {
-                // Route socket-delivered messages to the dedicated realtime
-                // collection — never to the historical messages[] array.
+                // Route socket-delivered messages to the dedicated realtime collection
                 addRealtimeMessage(newMessage);
 
                 clearUnreadCount(targetKey);
 
-                // ✅ Recipient is actively viewing the chat — immediately mark as seen
-                // This fires blue ticks on sender's side in real-time without refresh
-                if (socket && authUser?.user?._id) {
+                // ✅ Recipient is actively viewing the chat — immediately mark as seen (only if sent by someone else)
+                if (!isSentByMe && socket && myIdStr) {
                     socket.emit("mark-seen", {
                         senderId: senderIdStr, // who sent the message
-                        receiverId: authUser.user._id, // me (the viewer)
+                        receiverId: myIdStr, // me (the viewer)
                         isGroup,
                         groupId: isGroup ? conversationIdStr : undefined,
                     });
@@ -81,10 +91,13 @@ const useGetSocketMessage = () => {
                     api.put(seenEndpoint).catch(() => {});
                 }
             } else {
-                incrementUnreadCount(targetKey);
+                // Only increment unread count if the message was sent by someone else!
+                if (!isSentByMe) {
+                    incrementUnreadCount(targetKey);
+                }
             }
 
-            // Bump sender / group to top (#1) in real-time
+            // Bump conversation partner / group to top in real-time
             bumpUserToTop(targetKey, newMessage);
 
             // Update Last Message Snippet (with status)

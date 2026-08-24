@@ -13,6 +13,7 @@ import {
   FiPhone,
 } from "react-icons/fi";
 import chitChatLogo from "../../assets/chitchat_logo.svg";
+import { DEFAULT_USER_AVATAR_URL } from "../../config/systemAvatars.js";
 
 function Left() {
   const { activeTab, setActiveTab } = useConversation();
@@ -99,8 +100,13 @@ function Left() {
           title="User Settings & Profile"
         >
           <img
-            src={user?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.uid}`}
+            src={user?.avatar || DEFAULT_USER_AVATAR_URL}
             alt="Profile"
+            onError={(e) => {
+              if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+              }
+            }}
             className="w-8 h-8 rounded-full object-cover ring-[1.5px] ring-white/90 shadow-sm"
           />
         </button>

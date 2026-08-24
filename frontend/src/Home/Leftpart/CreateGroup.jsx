@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import useGetAllUsers from "../../context/useGetAllUser";
 import useConversation from "../../zustand/useConversation";
@@ -10,19 +10,14 @@ import {
   FiX,
   FiArrowRight,
   FiArrowLeft,
-  FiImage,
   FiInfo,
   FiUserX,
-  FiCamera,
-  FiUpload,
 } from "react-icons/fi";
 import toast from "react-hot-toast";
 import {
+  DEFAULT_USER_AVATAR_URL,
   DEFAULT_GROUP_AVATAR_URL,
-  GROUP_AVATAR_URLS,
-  GROUP_AVATAR_ITEMS,
 } from "../../config/systemAvatars";
-import PhotoCropModal from "../../components/PhotoCropModal";
 
 function CreateGroup() {
   const [allUsers, loadingUsers] = useGetAllUsers();
@@ -35,26 +30,7 @@ function CreateGroup() {
   const [groupDescription, setGroupDescription] = useState("");
   const [creating, setCreating] = useState(false);
 
-  // Group Avatar State: "system" | "custom"
-  const [groupAvatarSelectionType, setGroupAvatarSelectionType] = useState("system");
-  const [selectedGroupAvatar, setSelectedGroupAvatar] = useState(DEFAULT_GROUP_AVATAR_URL);
-  const [groupAvatarBlob, setGroupAvatarBlob] = useState(null);
-  const [customPreviewUrl, setCustomPreviewUrl] = useState(null);
-
-  // Custom Photo Upload & Crop State
-  const fileInputRef = useRef(null);
-  const [cropImageSrc, setCropImageSrc] = useState(null);
-
   const { setSelectedConversation, setActiveTab, setMyGroups } = useConversation();
-
-  // Clean up any temporary Object URL on component unmount
-  useEffect(() => {
-    return () => {
-      if (customPreviewUrl && customPreviewUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(customPreviewUrl);
-      }
-    };
-  }, [customPreviewUrl]);
 
   // Toggle member selection in sidebar list
   const toggleSelectMember = (userId) => {
@@ -97,61 +73,6 @@ function CreateGroup() {
     setIsModalOpen(true);
   };
 
-  // Handle switching to a System Group Avatar
-  const handleSelectSystemGroupAvatar = (url) => {
-    if (customPreviewUrl && customPreviewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(customPreviewUrl);
-      setCustomPreviewUrl(null);
-    }
-    setGroupAvatarBlob(null);
-    setSelectedGroupAvatar(url);
-    setGroupAvatarSelectionType("system");
-  };
-
-  // Handle File Input Selection for Custom Group Photo
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select a valid image file (PNG, JPG, WEBP)");
-      return;
-    }
-
-    const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
-    if (file.size > MAX_SIZE_BYTES) {
-      toast.error("Image size exceeds the 5 MB limit.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setCropImageSrc(reader.result);
-    };
-    reader.onerror = () => {
-      toast.error("Failed to read image file");
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Handle Cropped Image from PhotoCropModal
-  const handleApplyCrop = async (croppedBlob) => {
-    if (!croppedBlob) return;
-
-    if (customPreviewUrl && customPreviewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(customPreviewUrl);
-    }
-
-    const previewUrl = URL.createObjectURL(croppedBlob);
-    setCustomPreviewUrl(previewUrl);
-    setGroupAvatarBlob(croppedBlob);
-    setSelectedGroupAvatar(previewUrl);
-    setGroupAvatarSelectionType("custom");
-    setCropImageSrc(null);
-    return true;
-  };
-
   // Step 2 -> Submit API Call
   const handleCreateGroup = async (e) => {
     e.preventDefault();
@@ -167,29 +88,12 @@ function CreateGroup() {
     setCreating(true);
     const toastId = toast.loading("Creating group...");
     try {
-      let res;
-      if (groupAvatarSelectionType === "custom" && groupAvatarBlob) {
-        // Custom Group Photo: Multipart FormData upload
-        const formData = new FormData();
-        formData.append("groupName", groupName.trim());
-        formData.append("groupDescription", groupDescription.trim());
-        formData.append("members", JSON.stringify(selectedMembers));
-        formData.append("groupAvatar", groupAvatarBlob, "groupAvatar.jpg");
-
-        res = await api.post("/api/group/create", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-      } else {
-        // System Group Avatar: Clean JSON payload
-        res = await api.post("/api/group/create", {
-          groupName: groupName.trim(),
-          groupDescription: groupDescription.trim(),
-          groupAvatar: selectedGroupAvatar || DEFAULT_GROUP_AVATAR_URL,
-          members: selectedMembers,
-        });
-      }
+      const res = await api.post("/api/group/create", {
+        groupName: groupName.trim(),
+        groupDescription: groupDescription.trim(),
+        groupAvatar: DEFAULT_GROUP_AVATAR_URL,
+        members: selectedMembers,
+      });
 
       toast.success("Group created successfully! 🎉", { id: toastId });
 
@@ -199,13 +103,6 @@ function CreateGroup() {
       setGroupName("");
       setGroupDescription("");
       setSearchQuery("");
-      setSelectedGroupAvatar(DEFAULT_GROUP_AVATAR_URL);
-      setGroupAvatarSelectionType("system");
-      setGroupAvatarBlob(null);
-      if (customPreviewUrl && customPreviewUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(customPreviewUrl);
-        setCustomPreviewUrl(null);
-      }
 
       // Open new group conversation
       setMyGroups((prev) => [res.data, ...(prev || [])]);
@@ -221,24 +118,6 @@ function CreateGroup() {
 
   return (
     <div className="h-full flex flex-col bg-slate-900/30 text-slate-100 relative overflow-hidden select-none">
-      {/* Hidden File Input for Custom Group Photo */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileSelect}
-        accept="image/png, image/jpeg, image/webp"
-        className="hidden"
-      />
-
-      {/* Photo Crop Modal for Custom Group Photo */}
-      {cropImageSrc && (
-        <PhotoCropModal
-          imageSrc={cropImageSrc}
-          onApply={handleApplyCrop}
-          onClose={() => setCropImageSrc(null)}
-        />
-      )}
-
       {/* Top Header & Search Section (Unified with Conversations & Calls) */}
       <div className="p-3 sm:p-4 pb-2.5 sm:pb-3 border-b border-slate-800/80 space-y-2.5 sm:space-y-3 flex-shrink-0 bg-slate-950/40">
         {/* Fixed-height Header Bar */}
@@ -301,11 +180,13 @@ function CreateGroup() {
                   title={`Remove ${user.fullname}`}
                 >
                   <img
-                    src={
-                      user.avatar ||
-                      `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`
-                    }
+                    src={user.avatar || DEFAULT_USER_AVATAR_URL}
                     alt={user.fullname}
+                    onError={(e) => {
+                      if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                        e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                      }
+                    }}
                     className="w-4 h-4 rounded-full object-cover ring-1 ring-white/80"
                   />
                   <span className="text-[11px] font-medium text-slate-200 group-hover:text-white max-w-[80px] truncate">
@@ -347,11 +228,13 @@ function CreateGroup() {
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="relative flex-shrink-0">
                     <img
-                      src={
-                        user.avatar ||
-                        `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`
-                      }
+                      src={user.avatar || DEFAULT_USER_AVATAR_URL}
                       alt={user.fullname}
+                      onError={(e) => {
+                        if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                          e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                        }
+                      }}
                       className="w-9 h-9 rounded-full object-cover ring-[1.5px] ring-white/85 shadow-sm"
                     />
                   </div>
@@ -365,12 +248,11 @@ function CreateGroup() {
                   </div>
                 </div>
 
-                {/* Sleek Circular Checkbox Button */}
                 <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${
+                  className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${
                     isSelected
-                      ? "bg-indigo-500 text-white shadow-md shadow-indigo-500/30 scale-105"
-                      : "border-2 border-slate-600/60 bg-transparent group-hover:border-slate-400"
+                      ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/30"
+                      : "border-slate-700 bg-slate-800/60 group-hover:border-slate-600"
                   }`}
                 >
                   {isSelected && <FiCheck className="text-[10px] stroke-[3]" />}
@@ -436,194 +318,54 @@ function CreateGroup() {
 
               {/* Modal Body */}
               <form onSubmit={handleCreateGroup} className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
-                {/* Avatar Selection */}
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <FiImage className="text-indigo-400" /> Choose Group Avatar
-                    </label>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {groupAvatarSelectionType === "custom" ? "Custom Photo" : "System Avatar"}
-                    </span>
-                  </div>
-
-                  {/* System Avatars + Custom Upload Option */}
-                  <div className="grid grid-cols-5 gap-2.5 p-3 bg-slate-950/50 rounded-2xl border border-slate-800/80 items-center">
-                    {/* 1. Default Avatar */}
-                    <button
-                      type="button"
-                      onClick={() => handleSelectSystemGroupAvatar(DEFAULT_GROUP_AVATAR_URL)}
-                      className={`relative rounded-2xl p-1.5 transition-all transform hover:scale-105 flex flex-col items-center gap-1 cursor-pointer ${
-                        selectedGroupAvatar === DEFAULT_GROUP_AVATAR_URL
-                          ? "ring-2 ring-emerald-400 bg-emerald-500/15 shadow-[0_0_15px_rgba(52,211,153,0.3)] scale-105"
-                          : "opacity-70 hover:opacity-100 border border-slate-800 hover:border-slate-700"
-                      }`}
-                      title="Default Group Avatar"
-                    >
-                      <img
-                        src={DEFAULT_GROUP_AVATAR_URL}
-                        alt="Default Group"
-                        className="w-10 h-10 rounded-full object-cover bg-slate-950 ring-1 ring-slate-700"
-                      />
-                      <span className="text-[9px] font-semibold text-slate-300">Default</span>
-                      {selectedGroupAvatar === DEFAULT_GROUP_AVATAR_URL && (
-                        <span className="absolute -top-1 -right-1 p-0.5 bg-emerald-400 rounded-full text-slate-950 text-[8px] shadow-md">
-                          <FiCheck className="stroke-[3]" />
-                        </span>
-                      )}
-                    </button>
-
-                    {/* 2. Group Preset 1 */}
-                    <button
-                      type="button"
-                      onClick={() => handleSelectSystemGroupAvatar(GROUP_AVATAR_URLS[0])}
-                      className={`relative rounded-2xl p-1.5 transition-all transform hover:scale-105 flex flex-col items-center gap-1 cursor-pointer ${
-                        selectedGroupAvatar === GROUP_AVATAR_URLS[0]
-                          ? "ring-2 ring-emerald-400 bg-emerald-500/15 shadow-[0_0_15px_rgba(52,211,153,0.3)] scale-105"
-                          : "opacity-70 hover:opacity-100 border border-slate-800 hover:border-slate-700"
-                      }`}
-                      title="Group Avatar 1"
-                    >
-                      <img
-                        src={GROUP_AVATAR_URLS[0]}
-                        alt="Group 1"
-                        className="w-10 h-10 rounded-full object-cover bg-slate-950 ring-1 ring-slate-700"
-                      />
-                      <span className="text-[9px] font-semibold text-slate-300">Group 1</span>
-                      {selectedGroupAvatar === GROUP_AVATAR_URLS[0] && (
-                        <span className="absolute -top-1 -right-1 p-0.5 bg-emerald-400 rounded-full text-slate-950 text-[8px] shadow-md">
-                          <FiCheck className="stroke-[3]" />
-                        </span>
-                      )}
-                    </button>
-
-                    {/* 3. Group Preset 2 */}
-                    <button
-                      type="button"
-                      onClick={() => handleSelectSystemGroupAvatar(GROUP_AVATAR_URLS[1])}
-                      className={`relative rounded-2xl p-1.5 transition-all transform hover:scale-105 flex flex-col items-center gap-1 cursor-pointer ${
-                        selectedGroupAvatar === GROUP_AVATAR_URLS[1]
-                          ? "ring-2 ring-emerald-400 bg-emerald-500/15 shadow-[0_0_15px_rgba(52,211,153,0.3)] scale-105"
-                          : "opacity-70 hover:opacity-100 border border-slate-800 hover:border-slate-700"
-                      }`}
-                      title="Group Avatar 2"
-                    >
-                      <img
-                        src={GROUP_AVATAR_URLS[1]}
-                        alt="Group 2"
-                        className="w-10 h-10 rounded-full object-cover bg-slate-950 ring-1 ring-slate-700"
-                      />
-                      <span className="text-[9px] font-semibold text-slate-300">Group 2</span>
-                      {selectedGroupAvatar === GROUP_AVATAR_URLS[1] && (
-                        <span className="absolute -top-1 -right-1 p-0.5 bg-emerald-400 rounded-full text-slate-950 text-[8px] shadow-md">
-                          <FiCheck className="stroke-[3]" />
-                        </span>
-                      )}
-                    </button>
-
-                    {/* 4. Group Preset 3 */}
-                    <button
-                      type="button"
-                      onClick={() => handleSelectSystemGroupAvatar(GROUP_AVATAR_URLS[2])}
-                      className={`relative rounded-2xl p-1.5 transition-all transform hover:scale-105 flex flex-col items-center gap-1 cursor-pointer ${
-                        selectedGroupAvatar === GROUP_AVATAR_URLS[2]
-                          ? "ring-2 ring-emerald-400 bg-emerald-500/15 shadow-[0_0_15px_rgba(52,211,153,0.3)] scale-105"
-                          : "opacity-70 hover:opacity-100 border border-slate-800 hover:border-slate-700"
-                      }`}
-                      title="Group Avatar 3"
-                    >
-                      <img
-                        src={GROUP_AVATAR_URLS[2]}
-                        alt="Group 3"
-                        className="w-10 h-10 rounded-full object-cover bg-slate-950 ring-1 ring-slate-700"
-                      />
-                      <span className="text-[9px] font-semibold text-slate-300">Group 3</span>
-                      {selectedGroupAvatar === GROUP_AVATAR_URLS[2] && (
-                        <span className="absolute -top-1 -right-1 p-0.5 bg-emerald-400 rounded-full text-slate-950 text-[8px] shadow-md">
-                          <FiCheck className="stroke-[3]" />
-                        </span>
-                      )}
-                    </button>
-
-                    {/* 5. Custom Upload Button / Tile */}
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`relative rounded-2xl p-1.5 transition-all transform hover:scale-105 flex flex-col items-center gap-1 cursor-pointer ${
-                        groupAvatarSelectionType === "custom"
-                          ? "ring-2 ring-emerald-400 bg-emerald-500/15 shadow-[0_0_15px_rgba(52,211,153,0.3)] scale-105"
-                          : "border border-dashed border-slate-700 hover:border-indigo-400 bg-slate-900/60 hover:bg-slate-800"
-                      }`}
-                      title="Upload Custom Photo"
-                    >
-                      {customPreviewUrl ? (
-                        <img
-                          src={customPreviewUrl}
-                          alt="Custom Group"
-                          className="w-10 h-10 rounded-full object-cover ring-1 ring-slate-700"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/30">
-                          <FiCamera className="text-base" />
-                        </div>
-                      )}
-                      <span className="text-[9px] font-semibold text-indigo-300">
-                        {customPreviewUrl ? "Custom" : "Upload"}
-                      </span>
-                      {groupAvatarSelectionType === "custom" && (
-                        <span className="absolute -top-1 -right-1 p-0.5 bg-emerald-400 rounded-full text-slate-950 text-[8px] shadow-md">
-                          <FiCheck className="stroke-[3]" />
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
                 {/* Group Name Field */}
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-300">
-                    Group Name <span className="text-indigo-400">*</span>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                    <span>Group Name <span className="text-indigo-400">*</span></span>
+                    <span className="text-[10px] text-slate-500 font-mono">{groupName.length}/50</span>
                   </label>
                   <input
                     type="text"
                     autoFocus
                     required
+                    maxLength={50}
                     value={groupName}
                     onChange={(e) => setGroupName(e.target.value)}
-                    placeholder="e.g. Project Developers 🚀"
-                    className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                    placeholder="Enter group name"
+                    className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700/80 rounded-xl text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
                   />
                 </div>
 
                 {/* Group Description Field */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-300">
                     Group Description <span className="text-slate-500 font-normal">(Optional)</span>
                   </label>
                   <textarea
-                    rows={2}
+                    rows={3}
+                    maxLength={200}
                     value={groupDescription}
                     onChange={(e) => setGroupDescription(e.target.value)}
-                    placeholder="What is this group chat about?"
-                    className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition resize-none"
+                    placeholder="Add group description (optional)"
+                    className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700/80 rounded-xl text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition resize-none"
                   />
                 </div>
 
-                {/* Interactive Selected Members Management in Modal */}
+                {/* Selected Members Management in Modal */}
                 <div className="space-y-2 pt-1 border-t border-slate-800/80">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-slate-300">
                       Selected Members ({selectedMembers.length})
                     </span>
-                    <span className="text-[11px] text-slate-500">Click icon to remove</span>
+                    <span className="text-[11px] text-slate-400 font-medium">Click ✕ to remove</span>
                   </div>
 
                   {selectedUserObjects.length === 0 ? (
                     <div className="p-4 text-center text-xs text-red-400 bg-red-950/20 border border-red-900/30 rounded-xl flex items-center justify-center gap-2">
-                      <FiUserX /> Select at least 1 member from the sidebar list to proceed.
+                      <FiUserX /> Select at least 1 member from the list to proceed.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto pr-1 custom-scrollbar">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
                       {selectedUserObjects.map((user) => (
                         <div
                           key={user._id}
@@ -631,11 +373,13 @@ function CreateGroup() {
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <img
-                              src={
-                                user.avatar ||
-                                `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`
-                              }
+                              src={user.avatar || DEFAULT_USER_AVATAR_URL}
                               alt={user.fullname}
+                              onError={(e) => {
+                                if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                                  e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                                }
+                              }}
                               className="w-6 h-6 rounded-full object-cover flex-shrink-0 ring-[1.5px] ring-white/85 shadow-sm"
                             />
                             <span className="font-medium text-white truncate text-xs">

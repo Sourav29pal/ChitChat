@@ -4,6 +4,7 @@ import useConversation from "../../zustand/useConversation";
 import { FiSearch, FiUserPlus, FiMessageSquare, FiCheck } from "react-icons/fi";
 import toast from "react-hot-toast";
 import ProfileActionPopup from "../../components/ProfileActionPopup";
+import { DEFAULT_USER_AVATAR_URL } from "../../config/systemAvatars.js";
 
 function SearchUID() {
   const [query, setQuery] = useState("");
@@ -117,8 +118,13 @@ function SearchUID() {
                   title={`Click to view ${user.fullname}'s profile actions`}
                 >
                   <img
-                    src={user.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`}
+                    src={user.avatar || DEFAULT_USER_AVATAR_URL}
                     alt={user.fullname}
+                    onError={(e) => {
+                      if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                        e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                      }
+                    }}
                     className="w-11 h-11 rounded-full object-cover ring-[1.5px] ring-white/85 shadow-sm group-hover/avatar:scale-105 active:scale-95 transition duration-200"
                   />
                 </button>

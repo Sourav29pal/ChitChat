@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import useGetAllUsers from "../../context/useGetAllUser";
 import useConversation from "../../zustand/useConversation.js";
+import { useAuth } from "../../context/AuthProvider.jsx";
 import User from "./User";
 import api from "../../api";
 import { FiMessageSquare, FiX, FiInfo, FiSearch, FiTrash2, FiAlertTriangle } from "react-icons/fi";
@@ -98,11 +99,17 @@ function Users() {
 
   const isLoading = loading || fetchingGroups;
 
+  const [authUser] = useAuth();
+  const currentUserId = String(authUser?.user?._id || authUser?._id || "");
+
   // Calculate total unread count for filter badge
   const totalUnreadCount = Object.values(unreadCounts).reduce((acc, c) => acc + (c || 0), 0);
 
-  // Combine 1-on-1 chats and Group rooms
-  let filteredConversations = [...allUsers, ...myGroups];
+  // Combine 1-on-1 chats and Group rooms (strictly excluding the logged-in user from direct conversations)
+  let filteredConversations = [
+    ...allUsers.filter((u) => String(u._id) !== currentUserId),
+    ...myGroups,
+  ];
 
   // Search filter across the current friend/conversation list (by name or UID)
   if (searchQuery.trim()) {

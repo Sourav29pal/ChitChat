@@ -1,6 +1,10 @@
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { FiX } from "react-icons/fi";
+import {
+  DEFAULT_USER_AVATAR_URL,
+  DEFAULT_GROUP_AVATAR_URL,
+} from "../config/systemAvatars.js";
 
 function ProfilePhotoPreview({ user, imageUrl, name, subtitle, onClose }) {
   // Close on Escape key press
@@ -22,10 +26,8 @@ function ProfilePhotoPreview({ user, imageUrl, name, subtitle, onClose }) {
   const avatarUrl =
     imageUrl ||
     (isGroup
-      ? userObj.groupAvatar ||
-        `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(userObj.groupName || "Group")}`
-      : userObj.avatar ||
-        `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(userObj.uid || userObj._id || "User")}`);
+      ? userObj.groupAvatar || DEFAULT_GROUP_AVATAR_URL
+      : userObj.avatar || DEFAULT_USER_AVATAR_URL);
 
   const displayName = name || (isGroup ? userObj.groupName || "Group" : userObj.fullname || "User");
   const uid = userObj.uid ? String(userObj.uid) : "";
@@ -48,7 +50,10 @@ function ProfilePhotoPreview({ user, imageUrl, name, subtitle, onClose }) {
               alt={displayName}
               className="w-full h-full object-cover"
               onError={(e) => {
-                e.currentTarget.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(uid || "User")}`;
+                const fallback = isGroup ? DEFAULT_GROUP_AVATAR_URL : DEFAULT_USER_AVATAR_URL;
+                if (e.currentTarget.src !== fallback) {
+                  e.currentTarget.src = fallback;
+                }
               }}
             />
           </div>

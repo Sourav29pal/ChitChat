@@ -12,6 +12,10 @@ import {
 import { BsPinAngleFill } from "react-icons/bs";
 import { IoCheckmark, IoCheckmarkDone } from "react-icons/io5";
 import ProfileActionPopup from "../../components/ProfileActionPopup";
+import {
+  DEFAULT_USER_AVATAR_URL,
+  DEFAULT_GROUP_AVATAR_URL,
+} from "../../config/systemAvatars.js";
 
 function User({ user, onContextMenu }) {
   const [authUser] = useAuth();
@@ -114,14 +118,8 @@ function User({ user, onContextMenu }) {
   }
 
   const avatarUrl = isGroup
-    ? user.groupAvatar ||
-      `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
-        user.groupName
-      )}`
-    : user.avatar ||
-      `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(
-        user.uid || user._id
-      )}`;
+    ? user.groupAvatar || DEFAULT_GROUP_AVATAR_URL
+    : user.avatar || DEFAULT_USER_AVATAR_URL;
 
   const displayName = isGroup ? user.groupName : user.fullname;
 
@@ -149,6 +147,12 @@ function User({ user, onContextMenu }) {
         <img
           src={avatarUrl}
           alt={displayName}
+          onError={(e) => {
+            const fallback = isGroup ? DEFAULT_GROUP_AVATAR_URL : DEFAULT_USER_AVATAR_URL;
+            if (e.currentTarget.src !== fallback) {
+              e.currentTarget.src = fallback;
+            }
+          }}
           className="w-11 h-11 rounded-full object-cover ring-[1.5px] ring-white/80 shadow-sm group-hover/avatar:scale-105 active:scale-95 transition duration-200"
         />
         {isOnline && (

@@ -23,6 +23,7 @@ import toast from "react-hot-toast";
 import ProfilePhotoPreview from "./ProfilePhotoPreview";
 import PhotoCropModal from "./PhotoCropModal";
 import {
+  DEFAULT_USER_AVATAR_URL,
   DEFAULT_GROUP_AVATAR_URL,
   GROUP_AVATAR_URLS,
   GROUP_AVATAR_ITEMS,
@@ -76,14 +77,8 @@ function ProfileActionPopup({ user, onClose }) {
     onlineUsers.map(String).includes(String(userObj._id || ""));
 
   const avatarUrl = isGroup
-    ? userObj.groupAvatar ||
-      `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
-        userObj.groupName || "Group"
-      )}`
-    : userObj.avatar ||
-      `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(
-        userObj.uid || userObj._id || "User"
-      )}`;
+    ? userObj.groupAvatar || DEFAULT_GROUP_AVATAR_URL
+    : userObj.avatar || DEFAULT_USER_AVATAR_URL;
 
   const displayName = isGroup ? userObj.groupName || "Group" : userObj.fullname || "User";
   const subtitle = isGroup
@@ -313,9 +308,10 @@ function ProfileActionPopup({ user, onClose }) {
                     alt={displayName}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.currentTarget.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(
-                        uid || "User"
-                      )}`;
+                      const fallback = isGroup ? DEFAULT_GROUP_AVATAR_URL : DEFAULT_USER_AVATAR_URL;
+                      if (e.currentTarget.src !== fallback) {
+                        e.currentTarget.src = fallback;
+                      }
                     }}
                   />
                   <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center text-white">

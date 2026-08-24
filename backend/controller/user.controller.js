@@ -424,7 +424,7 @@ export const updateProfile = async (req, res) => {
             } else if (typeof avatar === "string" && avatar.trim()) {
                 const cleanAvatarUrl = avatar.trim();
                 if (user.avatar !== cleanAvatarUrl) {
-                    // If resetting to a default avatar (e.g. dicebear) or changing URL, delete old Cloudinary asset
+                    // If resetting to a system avatar or changing URL, delete old Cloudinary asset
                     if (user.avatarPublicId && cleanAvatarUrl !== user.avatar) {
                         oldAvatarPublicIdToDelete = user.avatarPublicId;
                         user.avatarPublicId = "";

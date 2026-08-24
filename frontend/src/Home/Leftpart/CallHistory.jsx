@@ -16,6 +16,7 @@ import {
 } from "react-icons/fi";
 import { IoCheckmark } from "react-icons/io5";
 import toast from "react-hot-toast";
+import { DEFAULT_USER_AVATAR_URL } from "../../config/systemAvatars.js";
 
 const formatCallDuration = (seconds = 0) => {
   if (!seconds || seconds <= 0) return "";
@@ -225,11 +226,7 @@ function CallHistory() {
           partner,
           partnerId,
           partnerName: partner?.fullname || "User",
-          partnerAvatar:
-            partner?.avatar ||
-            `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(
-              partner?.fullname || partnerId
-            )}`,
+          partnerAvatar: partner?.avatar || DEFAULT_USER_AVATAR_URL,
           isVideo,
           isCaller,
           isMissed,
@@ -493,6 +490,11 @@ function CallHistory() {
                   <img
                     src={group.partnerAvatar}
                     alt={group.partnerName}
+                    onError={(e) => {
+                      if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                        e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                      }
+                    }}
                     className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover ring-[1.5px] ring-white/85 shadow-md group-hover:scale-105 transition"
                   />
                   {isPartnerOnline && (

@@ -35,6 +35,7 @@ import ProfilePhotoPreview from "../../components/ProfilePhotoPreview";
 import PhotoCropModal from "../../components/PhotoCropModal";
 import ProfileActionPopup from "../../components/ProfileActionPopup";
 import {
+  DEFAULT_USER_AVATAR_URL,
   DEFAULT_GROUP_AVATAR_URL,
   GROUP_AVATAR_URLS,
   GROUP_AVATAR_ITEMS,
@@ -200,14 +201,8 @@ function ChatInfoDrawer() {
         )));
 
   const avatarUrl = isGroup
-    ? targetUser.groupAvatar ||
-      `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
-        targetUser.groupName || "Group"
-      )}`
-    : targetUser.avatar ||
-      `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(
-        targetUser.uid || targetUser._id || "User"
-      )}`;
+    ? targetUser.groupAvatar || DEFAULT_GROUP_AVATAR_URL
+    : targetUser.avatar || DEFAULT_USER_AVATAR_URL;
 
   const displayName = isGroup
     ? targetUser.groupName
@@ -559,6 +554,12 @@ function ChatInfoDrawer() {
               <img
                 src={avatarUrl}
                 alt={displayName}
+                onError={(e) => {
+                  const fallback = isGroup ? DEFAULT_GROUP_AVATAR_URL : DEFAULT_USER_AVATAR_URL;
+                  if (e.currentTarget.src !== fallback) {
+                    e.currentTarget.src = fallback;
+                  }
+                }}
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center text-white">
@@ -970,9 +971,7 @@ function ChatInfoDrawer() {
                 const mObj = typeof member === "object" ? member : { _id: member };
                 const mIdStr = String(mObj._id);
                 const mOnline = Array.isArray(onlineUsers) && onlineUsers.includes(mIdStr);
-                const mAvatar =
-                  mObj.avatar ||
-                  `https://api.dicebear.com/7.x/bottts/svg?seed=${mObj.uid || mIdStr}`;
+                const mAvatar = mObj.avatar || DEFAULT_USER_AVATAR_URL;
                 const mName = mObj.fullname || "Group Member";
                 const isThisMemberAdmin =
                   adminIdStr === mIdStr ||
@@ -996,6 +995,11 @@ function ChatInfoDrawer() {
                         <img
                           src={mAvatar}
                           alt={mName}
+                          onError={(e) => {
+                            if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                              e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                            }
+                          }}
                           className="w-8 h-8 rounded-full object-cover ring-[1.5px] ring-white/85 shadow-sm group-hover/member:scale-105 active:scale-95 transition duration-150"
                         />
                         {mOnline && (
@@ -1135,11 +1139,13 @@ function ChatInfoDrawer() {
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <img
-                              src={
-                                user.avatar ||
-                                `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`
-                              }
+                              src={user.avatar || DEFAULT_USER_AVATAR_URL}
                               alt={user.fullname}
+                              onError={(e) => {
+                                if (e.currentTarget.src !== DEFAULT_USER_AVATAR_URL) {
+                                  e.currentTarget.src = DEFAULT_USER_AVATAR_URL;
+                                }
+                              }}
                               className="w-8 h-8 rounded-full object-cover ring-[1.5px] ring-white/85 shadow-sm"
                             />
                             <div className="min-w-0">

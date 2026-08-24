@@ -3,6 +3,10 @@ import useConversation from "../../zustand/useConversation";
 import { useSocketContext } from "../../context/SocketContext";
 import { FiPhone, FiVideo, FiUsers, FiX, FiArrowLeft } from "react-icons/fi";
 import ProfileActionPopup from "../../components/ProfileActionPopup";
+import {
+  DEFAULT_USER_AVATAR_URL,
+  DEFAULT_GROUP_AVATAR_URL,
+} from "../../config/systemAvatars.js";
 
 function Chatuser() {
   const {
@@ -42,14 +46,8 @@ function Chatuser() {
   }
 
   const avatarUrl = isGroup
-    ? selectedConversation.groupAvatar ||
-      `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(
-        selectedConversation.groupName || "Group"
-      )}`
-    : selectedConversation.avatar ||
-      `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(
-        selectedConversation.uid || selectedConversation._id || "User"
-      )}`;
+    ? selectedConversation.groupAvatar || DEFAULT_GROUP_AVATAR_URL
+    : selectedConversation.avatar || DEFAULT_USER_AVATAR_URL;
 
   const displayName = isGroup
     ? selectedConversation.groupName || "Group"
@@ -101,6 +99,12 @@ function Chatuser() {
           <img
             src={avatarUrl}
             alt={displayName}
+            onError={(e) => {
+              const fallback = isGroup ? DEFAULT_GROUP_AVATAR_URL : DEFAULT_USER_AVATAR_URL;
+              if (e.currentTarget.src !== fallback) {
+                e.currentTarget.src = fallback;
+              }
+            }}
             className="w-10 h-10 rounded-full object-cover ring-[1.5px] ring-white/80 shadow-sm group-hover/avatar:scale-105 active:scale-95 transition duration-200"
           />
           {isOnline && (

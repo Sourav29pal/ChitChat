@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import toast from "react-hot-toast";
+import { DEFAULT_USER_AVATAR_URL } from "../config/systemAvatars.js";
 
 const useConversation = create((set) => ({
   // Restore last open conversation from localStorage on page refresh
@@ -228,6 +229,20 @@ const useConversation = create((set) => ({
         updatedLastMsgMap[targetIdStr] = lastMsg;
       }
 
+      // Never allow logged-in user to be inserted as a chat contact in allUsers
+      let currentAuthId = "";
+      try {
+        const savedAuth = localStorage.getItem("ChatApp");
+        if (savedAuth) {
+          const parsed = JSON.parse(savedAuth);
+          currentAuthId = String(parsed?.user?._id || parsed?._id || "");
+        }
+      } catch (e) {}
+
+      if (currentAuthId && targetIdStr === currentAuthId) {
+        return { lastMessages: updatedLastMsgMap };
+      }
+
       // Check if target is a group conversation
       const groupIndex = state.myGroups.findIndex((g) => String(g._id) === targetIdStr);
       const isGroupMessage = groupIndex !== -1 || (lastMsg && (lastMsg.isGroup === true || lastMsg.receiverId === null));
@@ -263,15 +278,21 @@ const useConversation = create((set) => ({
       } else if (lastMsg && lastMsg.receiverId !== null) {
         // Genuine first-time direct message from a new contact not yet in allUsers:
         const senderObj = typeof lastMsg.senderId === "object" && lastMsg.senderId ? lastMsg.senderId : null;
-        const newUserObj = {
-          _id: senderObj?._id || targetIdStr,
-          fullname: senderObj?.fullname || "User",
-          uid: senderObj?.uid || "",
-          avatar: senderObj?.avatar || "",
-          about: senderObj?.about || "Hey there! I am using ChitChat.",
-          lastMessage: lastMsg,
-        };
-        updatedUsers.unshift(newUserObj);
+        const receiverObj = typeof lastMsg.receiverId === "object" && lastMsg.receiverId ? lastMsg.receiverId : null;
+        const partnerObj = String(senderObj?._id) === targetIdStr ? senderObj : receiverObj;
+
+        // Ensure partner is not the current user
+        if (partnerObj && String(partnerObj._id) !== currentAuthId) {
+          const newUserObj = {
+            _id: partnerObj?._id || targetIdStr,
+            fullname: partnerObj?.fullname || "User",
+            uid: partnerObj?.uid || "",
+            avatar: partnerObj?.avatar || DEFAULT_USER_AVATAR_URL,
+            about: partnerObj?.about || "Hey there! I am using ChitChat.",
+            lastMessage: lastMsg,
+          };
+          updatedUsers.unshift(newUserObj);
+        }
       }
 
       return {
